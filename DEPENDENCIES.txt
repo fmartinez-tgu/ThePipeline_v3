@@ -1,0 +1,263 @@
+ThePipeline3 - Dependencies and installation notes
+===============================================
+
+Summary
+-------
+This file lists the Python packages and non-Python tools (binaries, Java jars,
+and containers) that the repository's scripts call. It also provides conservative
+version suggestions (where known), and recommended install commands or links.
+
+Notes and assumptions
+---------------------
+- The scripts use Python 3.7 (shebangs: python3.7). Recommendations below use
+  Python 3.7-compatible package versions. If you use a newer Python, some
+  packages may have newer releases; test before pinning in production.
+- Many heavy bioinformatics tools are included under `Programs/` (for example
+  `Programs/gatk-4.2.5.0` or `Programs/fastp/fastp`). If a tool binary is
+  already present in `Programs/`, the pipeline uses those. Where a program is
+  not included, installation instructions are provided.
+- Where available the repository includes a `data/Configs/software_versions.txt`
+  with a few pinned versions (fastp, kraken). Use that file as the canonical
+  source for versions included with the repo.
+
+1) Python packages (imported by the code)
+-----------------------------------------
+Required (used directly by the scripts):
+
+- pandas (imported as `pandas`)
+  - Suggested: pandas==1.3.5 (Python 3.7 compatible, stable)
+  - Install (pip): pip install pandas==1.3.5
+  - Install (conda): conda install -c conda-forge pandas=1.3.5
+
+- PyVCF (imported as `vcf`)
+  - Suggested: PyVCF==0.6.8 (import name: `vcf`)
+  - Install (pip): pip install PyVCF==0.6.8
+  - Install (conda): conda install -c bioconda pyvcf
+
+- pairsnp (imported as `pairsnp`) — repository ships a copy under
+  `data/libs/pairsnp-python/` (preferred to use that). If you want to install
+  it system-wide:
+  - upstream repo: https://github.com/gtonkinhill/pairsnp
+  - Install (pip from repo): pip install git+https://github.com/gtonkinhill/pairsnp.git
+  - Or use the included copy: `python -m pip install ./data/libs/pairsnp-python` (from repo root)
+
+Optional / likely useful (used in parts of the pipeline):
+
+- multiqc (used by the Multiqc module)
+  - The repo includes a `Programs/MultiQC_env` virtualenv; the module calls
+    the binary from there. To install system-wide (recommended via conda):
+  - conda install -c bioconda multiqc
+
+- Any other pure-Python stdlib modules used are part of Python (argparse,
+  subprocess, os, sys, io, glob, itertools, functools, statistics, operator
+  etc.). No install needed.
+
+Notes on Python packages and versions
+------------------------------------
+- The pipeline was developed against Python 3.7. If you create a conda env
+  use python=3.7 to maximise compatibility:
+
+  conda create -n thepipeline python=3.7
+  conda activate thepipeline
+
+  # then install core python packages
+  conda install -c conda-forge pandas=1.3.5
+  conda install -c bioconda pyvcf
+  pip install git+https://github.com/gtonkinhill/pairsnp.git
+
+2) System binaries, tools and wrappers called by the pipeline
+-----------------------------------------------------------
+The pipeline expects a number of externally developed bioinformatics programs
+to be available. Many of them are included under `Programs/` in this repo;
+where not included, I provide install hints and official sources.
+
+Core tools (required for the full pipeline):
+
+- bwa
+  - Purpose: mapping (bwa mem)
+  - Typical install: conda install -c bioconda bwa
+  - Upstream: https://github.com/lh3/bwa
+
+- samtools
+  - Purpose: BAM/CRAM handling (view, sort, index)
+  - Install: conda install -c bioconda samtools
+  - Upstream: http://www.htslib.org/
+
+- picard (jar)
+  - Purpose: MarkDuplicates (called via java -jar picard ...)
+  - Install: conda install -c bioconda picard
+  - Or download jar: https://github.com/broadinstitute/picard/releases
+
+- fastp
+  - Purpose: read cleaning
+  - Version present in repository config: fastp=0.23.2 (see data/Configs/software_versions.txt)
+  - Install: conda install -c bioconda fastp
+  - Upstream: https://github.com/OpenGene/fastp
+
+- kraken (Kraken 1) and kraken-report / kraken-translate
+  - Purpose: taxonomic classification
+  - Version present in repository config: kraken=0.10.5-beta
+  - Install: Kraken is available from bioconda: conda install -c bioconda kraken
+  - Upstream: https://ccb.jhu.edu/software/kraken/
+
+- seqtk
+  - Purpose: read extraction (seqtk subseq)
+  - Install: conda install -c bioconda seqtk
+  - Upstream: https://github.com/lh3/seqtk
+
+- pigz
+  - Purpose: parallel gzip (used to compress filtered fastq)
+  - Install: sudo apt install pigz  OR conda install -c conda-forge pigz
+  - Upstream: https://zlib.net/pigz/
+
+- samclip (samclip_H)
+  - Purpose: hard-clipping filter (repo includes samclip_H)
+  - If not present, get from: https://github.com/tseemann/samclip
+
+- qualimap
+  - Purpose: BAM QC
+  - Install (bioconda): conda install -c bioconda qualimap
+
+- bedtools (genomeCoverageBed)
+  - Purpose: coverage calculations (genomeCoverageBed)
+  - Install: conda install -c bioconda bedtools
+  - Upstream: https://bedtools.readthedocs.io/
+
+- varscan (jar)
+  - Purpose: VarScan pileup2snp
+  - VarScan jar is usually downloaded (VarScan.v2.X.jar). Install via conda or download jar:
+    conda install -c bioconda varscan
+    or download: http://varscan.sourceforge.net/
+
+- GATK (gatk)
+  - Purpose: Mutect2, SelectVariants, etc.
+  - The repository already includes `Programs/gatk-4.2.5.0`.
+  - GATK requires Java 8+ and often a conda environment. If you need to install:
+    See https://gatk.broadinstitute.org/
+
+- snpEff (java, jar)
+  - Purpose: annotation of VCFs
+  - Install: conda install -c bioconda snpeff  OR download from https://pcingola.github.io/SnpEff/
+
+- snp-sites
+  - Purpose: derive SNP-only multifasta from multifasta
+  - The repo includes Programs/snp-sites; otherwise: conda install -c bioconda snp-sites
+  - Upstream: https://github.com/sanger-pathogens/snp-sites
+
+- minos
+  - Purpose: adjudication (Minos adjudicate). The pipeline calls Minos via Singularity.
+  - Minos docs: https://github.com/iqbal-lab-org/minos
+  - Minos is typically run inside a Singularity or Docker container (the Calling module constructs a singularity exec command).
+
+- snpEff (see above), and Java (OpenJDK) available on PATH
+  - Install Java: sudo apt install openjdk-11-jre-headless
+
+- singularity (or apptainer)
+  - Purpose: run Minos containerized
+  - Install: see https://sylabs.io/docs/
+
+- gzip / awk / grep / cut / sort / wc etc. (standard unix tools) — usually present on Linux
+
+3) Where the repo already includes programs
+-----------------------------------------
+- Programs/gatk-4.2.5.0/  — local GATK distribution (4.2.5.0)
+- Programs/fastp/fastp  — fastp binary included
+- Programs/bwa/  — bwa sources and binary included
+- Programs/bedtools2/  — bedtools sources included
+- Programs/samtools-1.15/  — samtools source included
+- Programs/snp-sites/  — snp-sites included
+- Programs/Kraken/  — Kraken tools included
+- Programs/MultiQC_env/ — local MultiQC virtualenv (the pipeline points at the env python)
+- data/libs/pairsnp-python/ — a vendored copy of pairsnp python package
+
+If you plan to use the repo's bundled binaries, ensure the `Programs/Paths` file
+(`data/Paths/programs_path`) points to the correct relative location; the
+`Repository.Programs()` function concatenates the repo path and entries in that
+file to generate absolute paths.
+
+4) Java tools & jars
+--------------------
+- VarScan (jar) — used via `java -jar varscan.jar` (check `Programs` paths)
+- Picard (jar) — used as `java -jar picard.jar` (or via `picard` wrapper)
+- snpEff (jar) — `java -jar snpEff.jar`
+
+You can typically install these via the `bioconda` channel or download their
+release jars from the projects' releases pages. Example with conda:
+
+  conda install -c bioconda varscan picard snpeff
+
+5) Container note (Singularity / Apptainer)
+-----------------------------------------
+Minos adjudication is executed through `singularity exec` in the `Calling`
+module. Ensure Singularity/Apptainer is installed on the cluster/machine where
+you run the pipeline if you want Minos to run. If you prefer Docker, you will
+need to adapt the call to use `docker run` or build a local environment.
+
+6) Quick install recipe (recommended)
+-------------------------------------
+Using conda (recommended for reproducibility):
+
+  # create env with python 3.7
+  conda create -n thepipeline python=3.7 -y
+  conda activate thepipeline
+
+  # install core python libraries
+  conda install -c conda-forge pandas=1.3.5 -y
+  conda install -c bioconda pyvcf pairsnp -y
+
+  # install common bioinformatics tools
+  conda install -c bioconda bwa samtools picard fastp kraken seqtk pigz bedtools snp-sites varscan snpeff multiqc qualimap -y
+
+  # install singularity (system package) if you need it; follow vendor docs
+
+  # optional: install pairsnp from the bundled folder if you prefer
+  python -m pip install ./data/libs/pairsnp-python
+
+If you prefer apt-get for system tools (Debian/Ubuntu):
+
+  sudo apt update
+  sudo apt install -y default-jre pigz gzip awk sed grep coreutils build-essential
+
+For exact tool versions that ship with this repository, inspect:
+
+  - data/Configs/software_versions.txt  (contains a couple pinned versions)
+  - Programs/gatk-4.2.5.0/               (GATK 4.2.5.0 shipped)
+  - Programs/fastp/fastp                 (fastp binary included)
+
+7) Minimal checklist to run the pipeline
+----------------------------------------
+- Create and activate a Python 3.7 conda environment
+- Install Python packages (pandas, PyVCF, pairsnp or use vendor copy)
+- Ensure Java (JRE 8/11) is installed and available on PATH
+- Ensure singularity is installed if you plan to use Minos via container
+- Check `data/Paths/programs_path` entries and adjust paths if you installed
+  tools system-wide (or leave as-is to use the `Programs/` bundled binaries)
+- Confirm `data/Paths/data_path` points to the data folder(s) you will use
+
+8) Helpful links
+----------------
+- Conda / Bioconda: https://bioconda.github.io/
+- GATK: https://gatk.broadinstitute.org/
+- Minos: https://github.com/iqbal-lab-org/minos
+- pairsnp: https://github.com/gtonkinhill/pairsnp
+- snp-sites: https://github.com/sanger-pathogens/snp-sites
+- fastp: https://github.com/OpenGene/fastp
+- kraken: https://ccb.jhu.edu/software/kraken/
+- samtools / htslib: http://www.htslib.org/
+
+9) If you want, I can:
+- produce a ready-to-use conda environment YAML (python=3.7 + packages and bio tools),
+- create a `requirements.txt` and a minimal `environment.yml` for conda,
+- or attempt to autodetect exact versions from the `Programs/` folder binaries.
+
+Contact / verification
+----------------------
+I scanned the main driver (`ThePipeline3`) and the `PipeModules/` Python
+modules to collect the above list. If you want, I will now:
+
+- (A) generate an `environment.yml` for conda with the conservative pins shown
+    above, or
+- (B) produce a `requirements.txt` (pip) and a short README snippet with
+    example commands to create the runtime environment.
+
+Pick A or B (or ask for both) and I will add the artifacts to the repo.

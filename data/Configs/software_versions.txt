@@ -1,0 +1,14 @@
+fastp=0.23.2
+kraken=0.10.5-beta
+bwa=0.7.17-r1198-dirty
+samtools=1.15 (using htslib 1.15)
+picard=2.25.4
+gatk=v4.2.5.0
+seqtk=1.2-r101-dirty
+bedtools=v2.25.0
+varscan=2.3.7
+awk=system_awk
+pilon=1.24
+snpeff=4.2 (build 2015-12-05)
+pairsnp=0.3.1
+minos=0.12.5

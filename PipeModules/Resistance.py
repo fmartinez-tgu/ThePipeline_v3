@@ -1,0 +1,520 @@
+#! /usr/bin/env python3.7
+# Copyright (C) 2025 Miguel Moreno Molina & Francisco José Martínez
+
+# This file is part of ThePipeline3
+# ThePipeline3 is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# ThePipeline3 is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License
+# along with ThePipeline3.  If not, see <http://www.gnu.org/licenses/>.
+
+def DetectResistance(prefix):
+    import os
+    import vcf
+    import datetime
+
+    catalogue = {} #locus: [drugs related to the locus]
+    positions = {} #position: [codonREF, [codonsALT], [drugs], [confidences]]
+    indels = {} #position: [codonREF, [codonsALT], [drugs], [confidences]]
+    gene_names = {} #locus: gene name
+    modified = [] #positions that are discrepant between MTB_anc and H37Rv
+    drugs = {} #position: [gene, [drugs related to the position]]
+    
+    catalogue_file = "/data/ThePipeline_v3/data/catalogWHO2023_pipeline.csv"
+    
+    with open(catalogue_file) as infile:
+        next(infile)
+        for line in infile:
+            #header: variant,confidence,drug,gene_name,gene_locus,genome_pos,ref,alt,comment
+            line = line.strip().split(",")
+            
+            if line[4] not in catalogue.keys(): #keep track of locus: [drugs related to the locus]
+                catalogue[line[4]] = []
+                catalogue[line[4]].append(line[2])
+            else:
+                catalogue[line[4]].append(line[2])
+                
+            if line[4] not in gene_names.keys(): #keep track of gene names
+                gene_names[line[4]] = line[3]
+                
+            if line[5] not in drugs.keys(): #keep track of position: [gene, [drugs]]
+                drugs[line[5]] = [line[3], []]
+                drugs[line[5]][1].append(line[2])
+            else:
+                drugs[line[5]][1].append(line[2])
+                
+            if (len(line[6]) == 1 and len(line[7]) == 1) or (len(line[6]) == 3 and len(line[7]) == 3): #intergenic or codon
+
+                if "Modified" in line[-1]: #keep track of discrepant positions
+                    modified.append(line[5])
+
+                if line[5] not in positions: #now let's populate the dictionary -> position: [codonREF, [codonsALT], [drugs], [confidences]]
+                    positions[line[5]] = [line[6], [line[7]], [line[2]], [line[1]]]
+                else:
+                    positions[line[5]][1].append(line[7])
+                    positions[line[5]][-1].append(line[1])
+                    positions[line[5]][2].append(line[2])
+                    
+            else:
+                if line[5] not in indels: #indels -> position: [codonREF, [codonsALT], [drugs], [confidences]]
+                    indels[line[5]] = [line[6], [line[7]], [line[2]], [line[1]]]
+                else:
+                    indels[line[5]][1].append(line[7])
+                    indels[line[5]][-1].append(line[1])
+                    indels[line[5]][2].append(line[2])
+
+    for locus, drug in catalogue.items(): #for better clarity, this loop adapts the IG names to the genes they regulate
+        if "IG" in locus:
+            parts = locus.replace("IG_","").split("_")
+            if parts[0] in gene_names.keys():
+                gene_names[locus] = gene_names[parts[0]]+"_IG"
+            if parts[1] in gene_names.keys():
+                gene_names[locus] = gene_names[parts[1]]+"_IG"
+
+
+    with open("{}.res".format(prefix), "w") as outfile:
+        outfile.write("Gene,Locus,Pos,CodonREF,CodonALT,Change,Freq,Drug,Confidence\n")
+        final_output = []
+        
+        ### SECTION 1: SNPs ###
+               
+        with open("{}.DR.snp.final".format(prefix)) as inSNP:
+            next(inSNP)
+            for line in inSNP:
+
+                line = line.strip().replace(",",".").split("\t")
+                position, freq, var_allele, gene, change, annot, cd_wt, cd_mut = line[1], line[4], line[6], line[7], line[8], line[9], line[10], line[11]
+
+                gene_name = ""
+
+                if gene in gene_names.keys(): #let's make sure genes with no name don't ruin the party
+                    gene_name = gene_names[gene]
+                else:
+                    gene_name = gene
+
+
+                if position in modified and annot in ["non-syn", "intergenic"]: #if nt differs in MTB_anc and H37Rv, we don't need to check it because it's always Not assoc
+                    if change == "-":
+                        change = "-*"
+                    else:
+                        change = change[-1] + change[1:-1] + change[0] + "*"
+                            
+                    final_output.append(",".join([gene_name, gene, position, cd_wt, cd_mut, change, freq, "/".join(list(set(catalogue[gene]))), "Not assoc w R\n"]))
+                    continue
+                    
+                if gene in catalogue.keys() and annot == "non-syn": #if gene is in catalogue and variant is non-synonymous
+
+                    if position in positions.keys(): # if the position is in the catalogue
+
+                        info = positions[position] #we retrieve the position info
+                        if cd_mut in info[1]: #if the variant codon is reported
+                            if len(list(set(info[2]))) > 1:
+                                for antibiotic in info[2]: #we need to print a line for each associated drug and its confidence score
+                                    final_output.append(",".join([gene_name, gene, position, info[0], cd_mut, change, freq, antibiotic, info[3][info[2].index(antibiotic)]])+"\n")
+                            else: #unless it's all the same drug
+                                final_output.append(",".join([gene_name, gene, position, info[0], cd_mut, change, freq, info[2][0], info[3][info[1].index(cd_mut)]])+"\n")
+                        else: #if the variant codon is not reported
+                            final_output.append(",".join([gene_name, gene, position, info[0], cd_mut, change, freq, "/".join(list(set(info[2]))), "Alt. AA as: " + "/".join(list(set(info[3])))])+"\n")
+                    else: #if the position is not in the catalogue
+
+                        info = [cd_wt, cd_mut, "/".join(list(set(catalogue[gene]))), "New"]
+                        final_output.append(",".join([gene_name, gene, position, info[0], cd_mut, change, freq, info[2], "New"])+"\n")
+                    
+                if gene in catalogue.keys() and annot == "intergenic": #if gene is in catalogue and variant is intergenic
+                    if position in positions.keys(): # if the position is in the catalogue
+                        info = positions[position] #we retrieve the position info
+                        if var_allele in info[1]: #if the variant nucleotide is reported
+                            if len(list(set(info[2]))) > 1:
+                                for antibiotic in info[2]: #we need to print a line for each associated drug and its confidence score
+                                    final_output.append(",".join([gene_name, gene, position, info[0], var_allele, change, freq, antibiotic, info[3][info[2].index(antibiotic)]])+"\n")
+                            else: #unless it's all the same drug
+                                final_output.append(",".join([gene_name, gene, position, info[0], var_allele, change, freq, info[2][0], info[3][info[1].index(var_allele)]])+"\n")    
+                        else: #if the variant nucleotide is not reported
+                            final_output.append(",".join([gene_name, gene, position, info[0], var_allele, change, freq, "/".join(list(set(info[2]))), "Alt. NT as: " + "/".join(list(set(info[3])))])+"\n")
+                    else: #if the position is not in the catalogue
+                        info = [line[2], var_allele, "/".join(list(set(catalogue[gene]))), "New"]
+                        final_output.append(",".join([gene_name, gene, position, info[0], var_allele, change, freq, info[2], "New"])+"\n")
+                
+                if annot == "syn" and gene == "Rv1483" and change == "L203L": #exception for synonymous mutation in fabG1
+                    final_output.append(",".join(["fabG1-inhA", "Rv1483-Rv1484", "1674048", "CTG", "CTA", "L203L", freq, "Isoniazid", "Assoc w R"])+"\n")
+                    final_output.append(",".join(["fabG1-inhA", "Rv1483-Rv1484", "1674048", "CTG", "CTA", "L203L", freq, "Ethionamide", "Assoc w R - Interim"])+"\n")    
+
+        ### SECTION 2: INDELS ###
+        
+        annotation = "/data/ThePipeline_v3/data/annotation_H37Rv.csv"
+        genes = {}
+        with open(annotation) as inAnnot: #we load the genome annotation
+            for line in inAnnot:
+                line = line.strip().split(",")
+                genes[line[0]] = [int(line[-3]),int(line[-2]),line[-1]]
+            
+        vcf_reader = vcf.Reader(open("{}.remade.indel.vcf".format(prefix), 'r'))
+        for record in vcf_reader: #we parse the .indel.vcf file
+            position, ref, alt  = str(record.POS), str(record.REF), str(record.ALT[0])
+            
+            freq = str(round(float(record.samples[0]["AF"]), 2) * 100.0)[:4] + "%"
+            this_gene = "" #we find out which gene the position is at
+            for gene, coords in genes.items():
+                if coords[0] <= int(position) <= coords[1]:
+                    this_gene = gene
+                    continue
+
+            #and finally we can report the indel
+            if this_gene in catalogue.keys(): #if gene is in catalogue
+                if position in indels.keys(): # if the position is in the catalogue
+                    info = indels[position] #we retrieve the position info
+                    if ref == info[0] and alt in info[1]: #if the indel is reported
+                        if len(list(set(info[2]))) > 1:
+                            for antibiotic in info[2]: #we need to print a line for each associated drug and its confidence score
+                                final_output.append(",".join([gene_names[this_gene], this_gene, position, ref, alt, "indel", freq, antibiotic, info[3][info[2].index(antibiotic)]])+"\n")
+                        else: #unless it's all the same drug
+                            final_output.append(",".join([gene_names[this_gene], this_gene, position, ref, alt, "indel", freq, info[2][0], info[3][info[1].index(alt)]])+"\n")
+                    else: #if the indel is not reported
+                        final_output.append(",".join([gene_names[this_gene], this_gene, position, ref, alt, "indel", freq, "/".join(list(set(info[2]))), "Alt. indel as: " + "/".join(list(set(info[3])))])+"\n")
+                else: #if the position is not in the catalogue
+                    info = [ref, alt, "/".join(list(set(catalogue[this_gene]))), "New"]
+                    final_output.append(",".join([gene_names[this_gene], this_gene, position, ref, alt, "indel", freq, info[2], "New"])+"\n")
+        
+        #we save the results for now, sorted by genomic position
+        to_write = list(set(final_output))
+        to_write = sorted(to_write, key=lambda x: int(x.split(",")[2]))
+        
+        for result in to_write:
+            outfile.write(result)
+            
+        ### SECTION 3: WARNINGS ###
+        
+        #now we will make sure that no "Assoc w R" or "Interim" position is in the lowcov file, or in a deletion
+        lowcov, wildtype = {}, {}
+        
+        with open("{}.lowcov".format(prefix)) as inlc:
+            next(inlc)
+            for line in inlc: #scan and save the .lowcov file
+                line = line.strip().split("\t")
+                lowcov[line[0]] = line[1]
+        
+        with open("{}.wt".format(prefix)) as inwt:
+            next(inwt)
+            for line in inwt: #scan and save the .wt file
+                line = line.strip().split("\t")
+                wildtype[line[0]] = line[1]
+
+        for position, info in positions.items():
+            confidences = info[3]
+            #let's check if any position relevant for resistance is within the previous files, and report it as a warning
+            if "Assoc with R" in confidences or "Assoc w R - Interim" in confidences:
+                if str(position) in lowcov.keys():
+                    antibiotics = list(set(drugs[position][1]))
+                    antibiotics.sort()
+                    if position in wildtype.keys():
+                        outfile.write("WARNING: Position " + str(position) + " from " + drugs[position][0] + " (associated with " + "/".join(antibiotics).lower() + " resistance) has low read depth and could not be considered." + "\n")
+                    else:
+                        outfile.write("WARNING: Position " + str(position) + " from " + drugs[position][0] + " (associated with " + "/".join(antibiotics).lower() + " resistance) is within a deletion and could not be considered." + "\n")
+        
+
+        #closing comment, must be changed whenever a new WHO catalog version is released and implemented
+        outfile.write("\n#Resistance report generated on " + datetime.datetime.now().strftime("%d/%m/%Y") + " using WHO catalog version 2023 (Feb 2024 revision).\n")
+
+def CreateReport():
+    import os, glob
+    
+    with open("resistance_report.csv", "w") as outfile:
+        #header
+        outfile.write("Sample,AMI,BDQ,CAP,CFZ,DLM,EMB,ETH,INH,KAN,LEV,LZD,MXF,PZA,RIF,STM\n")
+        #we collect all .res files in the current folder
+        for filename in glob.glob(os.getcwd()+"/*.res"):
+            #initialise antibiotic lists
+            AMI, BDQ, CAP, CFZ, DLM, EMB, ETH, INH, KAN, LEV, LZD, MXF, PZA, RIF, STM = [], [], [], [], [], [], [], [], [], [], [], [], [], [], []
+
+            with open(filename) as infile:
+                next(infile)
+                for line in infile:
+                    if line[0] != "#":
+                        line = line.strip().split(",")
+                        if "WARNING" not in line[0] and len(line[0]) > 0:
+                            #collect info about each drug
+
+                            if line[8] in ["Assoc w R", "Assoc w R - Interim"] and float(line[6].replace("%","")) < 10.0:
+                                if "Amikacin" in line[7]: AMI.append("{0}#".format(line[8]))
+                                if "Bedaquiline" in line[7]: BDQ.append("{0}#".format(line[8]))
+                                if "Capreomycin" in line[7]: CAP.append("{0}#".format(line[8]))
+                                if "Clofazimine" in line[7]: CFZ.append("{0}#".format(line[8]))
+                                if "Delamanid" in line[7]: DLM.append("{0}#".format(line[8]))
+                                if "Ethambutol" in line[7]: EMB.append("{0}#".format(line[8]))
+                                if "Ethionamide" in line[7]: ETH.append("{0}#".format(line[8]))
+                                if "Isoniazid" in line[7]: INH.append("{0}#".format(line[8]))
+                                if "Kanamycin" in line[7]: KAN.append("{0}#".format(line[8]))
+                                if "Levofloxacin" in line[7]: LEV.append("{0}#".format(line[8]))
+                                if "Linezolid" in line[7]: LZD.append("{0}#".format(line[8]))
+                                if "Moxifloxacin" in line[7]: MXF.append("{0}#".format(line[8]))
+                                if "Pyrazinamide" in line[7]: PZA.append("{0}#".format(line[8]))
+                                if "Rifampicin" in line[7]: RIF.append("{0}#".format(line[8]))
+                                if "Streptomycin" in line[7]: STM.append("{0}#".format(line[8]))
+
+                            elif line[8] in ["Assoc w R", "Assoc w R - Interim"]:
+                                if "Amikacin" in line[7]: AMI.append(line[8])
+                                if "Bedaquiline" in line[7]: BDQ.append(line[8])
+                                if "Capreomycin" in line[7]: CAP.append(line[8])
+                                if "Clofazimine" in line[7]: CFZ.append(line[8])
+                                if "Delamanid" in line[7]: DLM.append(line[8])
+                                if "Ethambutol" in line[7]: EMB.append(line[8])
+                                if "Ethionamide" in line[7]: ETH.append(line[8])
+                                if "Isoniazid" in line[7]: INH.append(line[8])
+                                if "Kanamycin" in line[7]: KAN.append(line[8])
+                                if "Levofloxacin" in line[7]: LEV.append(line[8])
+                                if "Linezolid" in line[7]: LZD.append(line[8])
+                                if "Moxifloxacin" in line[7]: MXF.append(line[8])
+                                if "Pyrazinamide" in line[7]: PZA.append(line[8])
+                                if "Rifampicin" in line[7]: RIF.append(line[8])
+                                if "Streptomycin" in line[7]: STM.append(line[8])
+                            
+                            elif line[8] == "Uncertain significance":
+                                if "Amikacin" in line[7]: AMI.append(line[8])
+                                if "Bedaquiline" in line[7]: BDQ.append(line[8])
+                                if "Capreomycin" in line[7]: CAP.append(line[8])
+                                if "Clofazimine" in line[7]: CFZ.append(line[8])
+                                if "Delamanid" in line[7]: DLM.append(line[8])
+                                if "Ethambutol" in line[7]: EMB.append(line[8])
+                                if "Ethionamide" in line[7]: ETH.append(line[8])
+                                if "Isoniazid" in line[7]: INH.append(line[8])
+                                if "Kanamycin" in line[7]: KAN.append(line[8])
+                                if "Levofloxacin" in line[7]: LEV.append(line[8])
+                                if "Linezolid" in line[7]: LZD.append(line[8])
+                                if "Moxifloxacin" in line[7]: MXF.append(line[8])
+                                if "Pyrazinamide" in line[7]: PZA.append(line[8])
+                                if "Rifampicin" in line[7]: RIF.append(line[8])
+                                if "Streptomycin" in line[7]: STM.append(line[8])
+
+                        else:
+                            if "amikacin" in line[0]: AMI.append("!")
+                            if "bedaquiline" in line[0]: BDQ.append("!")
+                            if "capreomycin" in line[0]: CAP.append("!")
+                            if "clofazimine" in line[0]: CFZ.append("!")
+                            if "delamanid" in line[0]: DLM.append("!")
+                            if "ethambutol" in line[0]: EMB.append("!")
+                            if "ethionamide" in line[0]: ETH.append("!")
+                            if "isoniazid" in line[0]: INH.append("!")
+                            if "kanamycin" in line[0]: KAN.append("!")
+                            if "levofloxacin" in line[0]: LEV.append("!")
+                            if "linezolid" in line[0]: LZD.append("!")
+                            if "moxifloxacin" in line[0]: MXF.append("!")
+                            if "pyrazinamide" in line[0]: PZA.append("!")
+                            if "rifampicin" in line[0]: RIF.append("!")
+                            if "streptomycin" in line[0]: STM.append("!")
+
+                sample_output = [filename.split("/")[-1].split(".")[0]]
+                #interpret and write resistance information
+                for calls in [AMI, BDQ, CAP, CFZ, DLM, EMB, ETH, INH, KAN, LEV, LZD, MXF, PZA, RIF, STM]:
+                    if "Assoc w R#" in calls:
+                        sample_output.append("R#")
+                    elif "Assoc w R" in calls:
+                        sample_output.append("R")
+                    elif "Assoc w R - Interim#" in calls:
+                        sample_output.append("RI#")
+                    elif "Assoc w R - Interim" in calls:
+                        sample_output.append("RI")
+                    else: 
+                        if "!" in calls:
+                            sample_output.append("!")
+                        elif "Uncertain significance" in calls:
+                            sample_output.append("U")
+                        else:
+                            sample_output.append("S")
+
+                outfile.write(",".join(sample_output)+"\n")
+        # Añadimos una leyenda
+        outfile.write("\nCategory legend:\nR: Assoc w R\nRI: Assoc w R Interim\nU: Uncertain significance\n!: position within deletion or low cov, check .res file\nS: Susceptible\n#: Variant frequency < 10%\n")
+
+
+def CorrectRes(prefix):
+    import os
+    def find_last_line_with_rv():
+        last_line_number = None
+        with open("{}.res".format(prefix), 'r') as file:
+            for line_number, line in enumerate(file, start=1):
+                if "Rv" in line and "WARNING" not in line and "#" not in line:
+                    last_line_number = line_number
+        return last_line_number
+    
+    def get_different_characters(str1, str2):
+        differences = []
+        # Iterate over the length of the shorter string to avoid index errors
+        for i in range(min(len(str1), len(str2))):
+            if str1[i] != str2[i]:
+                differences.append((i, str1[i], str2[i]))  # Add the index and the differing characters
+        return differences
+
+    import pandas as pd
+
+    with open("{}.res".format(prefix), "r+") as input_res:
+        lines = input_res.readlines()
+
+    df_catalogue = pd.read_csv("/data/ThePipeline_v3/data/catalogWHO2023_pipeline.csv", sep=",")
+
+    triallelic_positions = []
+    with open("{}.DR.snp.final".format(prefix), "r+") as input_DR:
+        lines_DR = input_DR.readlines()
+        for line in lines_DR:
+            if "TRIALLELIC POSITION" in line:
+                triallelic_positions.append(line.split("\t")[1])
+
+
+    with open("{}.res.corrected".format(prefix), "w+") as output_res:
+        headers = lines[0]
+        output_res.write(headers)
+        lines = lines[1:]
+
+        processed = []
+        keep_writing = [] # Guardaremos aquí las posiciones cuando haya varias posibles resistencias para una misma mutación según el catálogo
+        last_line = find_last_line_with_rv()-2
+            
+
+        for i in range(0, len(lines)):
+            
+            if "WARNING" in lines[i] or "#" in lines[i] or lines[i].strip() == '':
+                continue
+
+            if "indel" in lines[i]:
+                lines[i].replace("%","")
+                output_res.write(lines[i])
+                continue
+
+            gene, locus, pos, codon_ref, codon_alt, change, freq, drug, confidence = lines[i].split(",")
+            differences = get_different_characters(codon_ref, codon_alt)
+            
+            for diff in differences:
+                codon_ref_unique_change = diff[1]
+                codon_alt_unique_change = diff[2]
+
+            if pos not in processed:
+                # Primero vamos a comprobar si aparece varias veces en el catalogo con distintas resistencias descritas (ej 1472337)
+                #print(df_catalogue[(df_catalogue['gene'] == gene) & (df_catalogue['drug'] == drug) & (df_catalogue['ref'] == codon_ref) & (df_catalogue['alt'] == codon_alt) & (df_catalogue['genome_pos'] == int(pos))])
+                
+                if lines[last_line].split(",")[2] == pos: # Si es la última línea, no mira más allá
+                    output_res.write(lines[i])
+                    processed.append(pos)
+                    continue
+
+                else:
+                    if pos in keep_writing:
+                        output_res.write(lines[i])
+                        continue
+                    else:
+                        info_catalogo = df_catalogue[
+                            ((df_catalogue['ref'] == codon_ref) | (df_catalogue['ref'] == codon_ref_unique_change)) &
+                            ((df_catalogue['alt'] == codon_alt) | (df_catalogue['alt'] == codon_alt_unique_change)) &
+                            (df_catalogue['genome_pos'] == int(pos))]
+                        
+                        if info_catalogo.shape[0] > 1:
+                            output_res.write(lines[i])
+                            keep_writing.append(pos)
+                            continue
+                
+                if pos in triallelic_positions:
+                    output_res.write(lines[i])
+                    continue
+
+                # Si hay triple mutacion en el mismo codon   
+                if lines[i].split(",")[2] == lines[i+1].split(",")[2] == lines[i+2].split(",")[2] and lines[i].split(",")[5] == lines[i+1].split(",")[5] == lines[i+2].split(",")[5]:
+
+                    pos_following = str(int(pos)+1)
+                    pos_following_2 = str(int(pos)+2)
+                    # Sacamos la asociacion del catálogo para las distintas mutaciones del codón. Si alguna no se encuentra, es que en realidad es un error del archivo de anotación y no es una triple
+                    # mutación, sino varias resistencias posibles en el mismo sitio, y por tanto lo tratamos como tal. Se hace lo mismo para si hay doble mutación
+                    conf_grading_1 = df_catalogue[(df_catalogue['ref'] == codon_ref) & (df_catalogue['alt'] == codon_alt) & (df_catalogue['drug'] == drug) & (df_catalogue['genome_pos'] == int(pos))]
+                    conf_grading_2 = df_catalogue[(df_catalogue['ref'] == lines[i+1].split(",")[3]) & (df_catalogue['alt'] == lines[i+1].split(",")[4]) & (df_catalogue['drug'] == lines[i+1].split(",")[7]) & (df_catalogue['genome_pos'] == int(lines[i+1].split(",")[2]))]
+                    conf_grading_3 = df_catalogue[(df_catalogue['ref'] == lines[i+2].split(",")[3]) & (df_catalogue['alt'] == lines[i+2].split(",")[4]) & (df_catalogue['drug'] == lines[i+2].split(",")[7]) & (df_catalogue['genome_pos'] == int(lines[i+2].split(",")[2]))]
+                    
+
+                    if conf_grading_1.shape[0] == 0 or conf_grading_2.shape[0] == 0 or conf_grading_3.shape[0] == 0:
+                        if conf_grading_1.shape[0] != 0:
+                            output_res.write(lines[i])
+
+                        if conf_grading_2.shape[0] != 0:
+                            output_res.write(lines[i+1])
+
+                        if conf_grading_3.shape[0] != 0:
+                            output_res.write(lines[i+2])
+
+
+                        processed.append(pos)
+                        
+
+
+                    else:
+                        conf_grading = df_catalogue[(df_catalogue['ref'] == codon_ref) & (df_catalogue['alt'] == codon_alt) & (df_catalogue['drug'] == drug) & (df_catalogue['genome_pos'] == int(pos))]['confidence'].item()
+                        output_res.write("{},{},{},{},{},{},{},{},{}\n".format(gene, locus, pos + "+" + pos_following + "+" + pos_following_2,codon_ref, codon_alt, change, freq, drug, conf_grading))
+                        processed.append(pos)
+                        processed.append(pos_following)
+                        processed.append(pos_following_2)
+
+    
+                # Si hay doble mutacion en el mismo codon
+                elif lines[i].split(",")[2] == lines[i+1].split(",")[2] and lines[i].split(",")[5] == lines[i+1].split(",")[5]:
+                    pos_following = str(int(pos)+1)
+                    # Sacamos la asociacion del catálogo
+                    conf_grading_1 = df_catalogue[(df_catalogue['ref'] == codon_ref) & (df_catalogue['alt'] == codon_alt) & (df_catalogue['drug'] == drug) & (df_catalogue['genome_pos'] == int(pos))]
+                    conf_grading_2 = df_catalogue[(df_catalogue['ref'] == lines[i+1].split(",")[3]) & (df_catalogue['alt'] == lines[i+1].split(",")[4]) & (df_catalogue['drug'] == lines[i+1].split(",")[7]) & (df_catalogue['genome_pos'] == int(lines[i+1].split(",")[2]))]
+                    if conf_grading_1.shape[0] == 0 or conf_grading_2.shape[0] == 0:
+                        if conf_grading_1.shape[0] != 0:
+                            output_res.write(lines[i])
+                        if conf_grading_2.shape[0] != 0:
+                            output_res.write(lines[i+1])
+                        processed.append(pos)            
+
+                    else:
+                        conf_grading = df_catalogue[(df_catalogue['ref'] == codon_ref) & (df_catalogue['alt'] == codon_alt) & (df_catalogue['drug'] == drug) & (df_catalogue['genome_pos'] == int(pos))]['confidence'].item()
+                        output_res.write("{},{},{},{},{},{},{},{},{}\n".format(gene, locus, pos + "+" + pos_following,codon_ref, codon_alt, change, freq, drug, conf_grading))
+                        processed.append(pos)
+                        processed.append(pos_following)
+                    
+                else:
+                    output_res.write(lines[i])
+                    processed.append(pos)
+
+            else:
+                continue
+
+        # Ahora escribimos los warnings y el final
+        warning = [line.strip() for line in lines if "WARNING" in line]
+        final_comment = lines[-1].strip()
+        output_res.write(("\n").join(warning))
+        output_res.write("\n{}".format(final_comment))
+
+
+def find_last_line_with_rv(prefix):
+    last_line_number = None
+    with open("{}.res".format(prefix), 'r') as file:
+        for line_number, line in enumerate(file, start=1):
+            if "Rv" in line and "WARNING" not in line and "#" not in line:
+                last_line_number = line_number
+    return last_line_number
+
+def Resistance(args):
+    ''' This function decides whether to detect genomic resistance determinants
+        of a sample using its prefix, or generate a report for all samples in the folder'''
+    import os
+    try:
+        if args.report:
+            print("\033[92m\nCreating resistance report\n\033[00m")
+            CreateReport()
+        else:
+            print("\033[92m\nObtaining {}.res\n\033[00m".format(args.prefix))
+            DetectResistance(args.prefix)
+            if find_last_line_with_rv(args.prefix) != None:
+                print("\033[92m\nCorrecting {}.res\n\033[00m".format(args.prefix))
+                CorrectRes(args.prefix)
+                os.remove("{}.res".format(args.prefix))
+                os.rename("{}.res.corrected".format(args.prefix),"{}.res".format(args.prefix))
+            
+    except FileNotFoundError:
+        print("ERROR: Some of the required files was not found (.lowcov, .DR.snp.final, .wt or .remade.indel.vcf) or you must provide one of the following arguments:")
+        print("\t-p\tPrefix to analyze a sample")
+        print("\t-r\tGenerate resistance report")
+        exit()
+

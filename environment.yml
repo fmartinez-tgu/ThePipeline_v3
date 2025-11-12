@@ -1,0 +1,34 @@
+name: thepipeline3
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.7
+  - pandas=1.3.5
+  - pyvcf=0.6.8
+  - bwa
+  - samtools=1.15
+  - picard
+  - fastp=0.23.2
+  - kraken=0.10.5
+  - seqtk
+  - pigz
+  - bedtools
+  - snp-sites
+  - varscan
+  - snpeff
+  - multiqc
+  - qualimap
+  - openjdk=11
+  - pip
+  - pip:
+    - git+https://github.com/gtonkinhill/pairsnp.git
+
+# Notes:
+# - Singularity / Apptainer is not typically installed via conda; install it
+#   via your system package manager following vendor docs if you need Minos
+#   execution via containers.
+# - The repo already includes some binaries under `Programs/`. The
+#   `data/Paths/programs_path` file controls which binaries the pipeline will
+#   use. Prefer those bundled binaries if you want an offline install.

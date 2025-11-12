@@ -1,0 +1,22 @@
+# This file contains the relative path to the programs that will be used by ThePipeline2
+# Paths must be relative to the main ThePipeline2 folder
+# Comments must be headed by "#"
+kraken=/Programs/Kraken/kraken
+kraken_translate=/Programs/Kraken/kraken-translate
+bwa=/Programs/bwa/bwa
+samtools=/Programs/samtools-1.15/samtools
+genomeCoverageBed=/Programs/bedtools2/bin/genomeCoverageBed
+seqtk=/Programs/seqtk/seqtk
+snpEff=/Programs/snpEff/snpEff.jar
+fastp=/Programs/fastp/fastp
+picard=/Programs/picard/picard.jar
+pigz=/Programs/pigz/pigz
+multiqc=/Programs/MultiQC_env/bin/multiqc
+qualimap=/Programs/qualimap_v2.2.1/qualimap
+pilon=/Programs/Pilon/pilon-1.24.jar
+snp-sites=/Programs/snp-sites/src/snp-sites
+pairsnp=/Programs/pairsnp-cpp/bin/pairsnp
+gatk=/Programs/gatk-4.2.5.0/gatk
+varscan=/Programs/VarScan/VarScan.v2.3.7.jar
+minos=/Programs/Minos/minos_v0.12.5.img
+samclip_h=/Programs/samclip_H

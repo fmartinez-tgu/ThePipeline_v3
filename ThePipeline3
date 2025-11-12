@@ -1,0 +1,480 @@
+#! /usr/bin/env python3.7
+# Copyright (C) 2025 Miguel Moreno Molina & Francisco Jose Martinez
+
+# ThePipeline was initially wrote by Galo A. Goig, with the intention of
+# standardizing and putting together a series of scripts previously developed
+# by Inaki Comas, Galo A. Goig and Alvaro Chiner-Oms.
+# ThePipeline2 was written by Alvaro Chiner-Oms (achiner@ibv.csic.es),
+# and Miguel Moreno Molina (mamoreno@ibv.csic.es) in order to
+# simplify, upgrade and speed-up some of the analyses.
+
+# This file is part of ThePipeline3
+# ThePipeline3 is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# ThePipeline3 is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+# You should have received a copy of the GNU General Public License
+# along with ThePipeline2.  If not, see <http://www.gnu.org/licenses/>.
+
+# Let's print a nice banner
+
+def print_banner():
+    banner = [
+        "░██████████░██                      ░█████████  ░██                      ░██ ░██                          ░██████  ",
+        "    ░██    ░██                      ░██     ░██                          ░██                             ░██   ░██ ",
+        "    ░██    ░████████   ░███████     ░██     ░██ ░██░████████   ░███████  ░██ ░██░████████   ░███████           ░██ ",
+        "    ░██    ░██    ░██ ░██    ░██    ░█████████  ░██░██    ░██ ░██    ░██ ░██ ░██░██    ░██ ░██    ░██      ░█████  ",
+        "    ░██    ░██    ░██ ░█████████    ░██         ░██░██    ░██ ░█████████ ░██ ░██░██    ░██ ░█████████          ░██ ",
+        "    ░██    ░██    ░██ ░██           ░██         ░██░███   ░██ ░██        ░██ ░██░██    ░██ ░██           ░██   ░██ ",
+        "    ░██    ░██    ░██  ░███████     ░██         ░██░██░█████   ░███████  ░██ ░██░██    ░██  ░███████      ░██████  ",
+        "                                                   ░██                                                             ",
+        "                                                   ░██                                                             ",
+        "                                                                                                                   ",
+    ]
+
+    # Define start (green) and end (blue) RGB colors
+    start_color = (144, 238, 144)  # light green
+    end_color   = (173, 216, 230)  # light blue
+
+    def interpolate_color(start, end, factor):
+        """Blend two RGB colors based on factor (0.0–1.0)."""
+        return (
+            int(start[0] + (end[0] - start[0]) * factor),
+            int(start[1] + (end[1] - start[1]) * factor),
+            int(start[2] + (end[2] - start[2]) * factor),
+        )
+
+    def rgb(r, g, b):
+        return f"\033[38;2;{r};{g};{b}m"
+
+    reset = "\033[0m"
+
+    total_lines = len(banner)
+    for i, line in enumerate(banner):
+        factor = i / (total_lines - 1)
+        r, g, b = interpolate_color(start_color, end_color, factor)
+        print(rgb(r, g, b) + line + reset)
+
+
+def percentage_float(x):
+    import argparse
+
+    x = float(x)
+    if x < 0.0 or x > 1.0:
+        raise argparse.ArgumentTypeError("%r must be a percentage value"
+                                         "in range: [0.0, 1.0]" % (x,))
+    return x
+
+
+def parse_args():
+    '''Parse arguments given to script'''
+
+    import argparse
+    import multiprocessing as mp
+    import sys
+
+    parser = argparse.ArgumentParser(description="Tuberculosis Genomics Unit "
+                                     "pipeline for mapping, SNP calling,"
+                                     "annotation and resistance predic"
+                                     "tion of MTB sequencing runs")
+    subparsers = parser.add_subparsers(help="sub-command help\n",
+                                       dest="subcommand")
+
+    # PARSER FOR FASTCLEAN
+    fastparser = subparsers.add_parser("fastclean", help=("Clean reads using"
+                                                          " fastp with "
+                                                          "parameters as "
+                                                          "specified in "
+                                                          "config file."))
+    fastparser.add_argument("-f", "--fastq", dest="fastq",
+                            required=True, nargs="*")
+    fastparser.add_argument("-c", "--config", dest="cfgfile",
+                            default="default_config",
+                            help=("Config file with fastp parameters."
+                                  " Defaults: "
+                                  "--cut_tail "
+                                  "--cut_window_size=10 "
+                                  "--cut_mean_quality=20 "
+                                  "--length_required=50 "
+                                  "--correction"))
+    fastparser.add_argument("-t", "--threads", default="1", dest="threads")
+    fastparser.add_argument("-v", "--verbose", dest="verbose",
+                            action="store_true",
+                            help=("Print the command line used to "
+                                  "call fastp in terminal"))
+    fastparser.add_argument("--phred64", dest="phred64", action="store_true",
+                            help=("Use Phred64 scale for input fastq. "
+                                  "OUTPUT will be in Phred33"))
+    fastparser.add_argument("-p", "--prefix", required=True)
+
+    # PARSER FOR KRAKEN
+
+    kparser = subparsers.add_parser("kraken",
+                                    help=("Classify fastq reads with kraken, "
+                                          "pick those that match the"
+                                          " string provided (MTBC by default),"
+                                          "and generate reports."))
+    kparser.add_argument("-f", "--fastq", dest="fastq", nargs="*")
+    kparser.add_argument("-c", "--compressed", dest="compressed",
+                         action="store_true",
+                         help=("Whether the fastq files are gzip compressed"))
+    kparser.add_argument("--paired", dest="paired", action="store_true",
+                         help=("Whether the fastq files are paired"))
+    kparser.add_argument("-m", "--matching", dest="matching",
+                         default="Mycobacterium tuberculosis",
+                         help=("Taxonomic name for matching"
+                               ". By default use Mycobacterium tuberculosis."))
+    kparser.add_argument("-p", "--prefix", dest="prefix", required=True)
+    kparser.add_argument("--db", dest="krakenDB", default=False,
+                         help=("Kraken database to use."))
+    kparser.add_argument("-t", "--threads", dest="threads", default="1",
+                         help=("Number of threads to use"))
+    kparser.add_argument("--preload", dest="preload", action="store_true",
+                         help=("Load the kraken database in RAM memory."))
+    kparser.add_argument("--classify", dest="classify", action="store_true",
+                         help=("Run kraken to classify fastq reads using "
+                               "krakenDB and store results in prefix.kraken"
+                               " file"))
+    kparser.add_argument("--filter", dest="filterf", action="store_true",
+                         help=("Save reads that matched the -matching"
+                               " argument into .filtered.fastq"))
+    kparser.add_argument("--noclean", dest="noclean", action="store_true",
+                         help=("Do not remove .labels, .readlist and .kraken"
+                               " files"))
+    kparser.add_argument("-r", "--report", dest="report", action="store_true",
+                         help=("Parse the output of kraken-report and output "
+                               "two ready-to-plot tabular report files "
+                               "with the contaminants listed"))
+
+    # PARSER FOR MAPPING
+    mparser = subparsers.add_parser("mapping",
+                                    help=("Map reads against reference with "
+                                          "bwa, convert sam output to cram, "
+                                          "and sort cram."))
+    mparser.add_argument("-f", "--fastq", dest="fastq", required=True,
+                         nargs="*",
+                         help=("Fastq files, either single or paired."))
+    mparser.add_argument("-r", "--reference", dest="reference",
+                         default=False,
+                         help=("Reference genome for mapping. By default "
+                               "the inferred MTBC most likely "
+                               "common ancestor."))
+    mparser.add_argument("-p", "--prefix", dest="prefix", required=True)
+    mparser.add_argument("-t", "--threads", dest="threads", default="1",
+                         help=("Number of threads to use."))
+    mparser.add_argument("--keep-dupbam", dest="keepduplicatesbam",
+                         action="store_true",
+                         help=("Keep the BAM file with the duplicates"
+                               " not removed."))
+    mparser.add_argument("-i", "--index", dest="index", action="store_true",
+                         help="Index reference genome (only first time) "
+                              "using bwtsw algorithm.")
+    mparser.add_argument("--no-dedup", dest="nodedup", action="store_true",
+                         help=("Do not remove duplicates. Duplicates are "
+                               "removed by default using picard-tools."))
+    mparser.add_argument("-mapq", dest="mapq_cutoff", default=0,
+                         type=int,
+                         help=("Mapping quality filter (0-60)."
+                               " Reads with MAPQ below"
+                               " this value will be filtered out in the BAM "
+                               "file. DEFAULT=0"))
+    mparser.add_argument("-nhc", "--no_hard_clipping", dest="nhc", action="store_true", help=("When used, don't filter hardclipping reads after mapping"))
+    mparser.add_argument("-c", "--cram", dest="cram_compress", action="store_true",
+                         help=("Store the final mapping file as CRAM insted of BAM."
+                               " DEFAULT=FALSE"))
+
+    # PARSER FOR COVERAGE FILTER
+    covparser = subparsers.add_parser("coverage",
+                                      help=("Calculate samples coverage from "
+                                            "sort.bam or sort.cram "
+                                            "files and filter given "
+                                            "coverage thresholds"))
+    covparser.add_argument("-r", "--reference", dest="reference",
+                           default=False,
+                           help=("Reference for mapping. By default the "
+                                 "inferred MTBC most likely common ancestor."))
+    covparser.add_argument("-e", "--extension", dest="extension",
+                           default="bam",
+                           choices={"bam", "cram"})
+    covparser.add_argument("-p", "--prefix", dest="prefix", required=True)
+    covparser.add_argument("-f", "--filter", dest="filter",
+                           action="store_true",
+                           help=("Activate the coverage filter. Samples not "
+                                 "passing thresholds are moved to NoPassCov/"))
+    covparser.add_argument("--min-depth-mean", dest="minmean", default=0,
+                           metavar="DEF: 0", type=int,
+                           help=("Minimum mean depth"))
+    covparser.add_argument("--min-depth-median", dest="minmedian", default=20,
+                           metavar="DEF: 20", type=int,
+                           help=("Minumum median depth"))
+    covparser.add_argument("--min-coverage", dest="mincov", default=0.95,
+                           metavar="DEF: 0.95", type=percentage_float,
+                           help=("Minimum genomic coverage. It must be "
+                                 "a percentage value in range: [0.0, 1.0]"))
+    covparser.add_argument("--keep-coverage", dest="keepcoverage",
+                           action="store_true", help=("Keep .coverage files"))
+    covparser.add_argument("--depth4cov", dest="depth4cov", default=10,
+                           help=("Minimum depth to consider covered a base"),
+                           metavar="DEF: 10", type=int)
+
+    # PARSER FOR SNP and INDEL CALLING
+    callparser = subparsers.add_parser("calling",
+                                       help="Perform variant calling "
+                                            "with Mutect2"
+                                            "and filter the obtained VCFs")
+    callparser.add_argument("-e", "--extension", dest="ext",
+                            default=".sort.bam",
+                            help=("Complete extension of mapped files to"
+                                  " perform variant calling on. "
+                                  "DEFAULT: .sort.bam"))
+    callparser.add_argument("-r", "--reference", dest="reference",
+                            default=False,
+                            help=("Reference for calling. By default the "
+                                  "inferred MTBC most likely "
+                                  "common ancestor."))
+    callparser.add_argument("-p", "--prefix", dest="prefix", required=True)
+    callparser.add_argument("-t", "--threads", dest="threads", default="1",
+                            help=("Number of threads to use."))
+    callparser.add_argument("-kgvcf", "--keep_gvcf", dest="keep_gvcf", action="store_true", help="Keep the gVCF file. By default, this file is removed")
+    callparser.add_argument("-kbam", "--keep_bam", dest="keep_bam", action="store_true", help="Keep the BAM file instead of CRAM. By default, BAMs are converted to CRAM if not present in the folder, and then removed")
+    callparser.add_argument("-kmvcf", "--keep_mutect2_vcf", dest="kmvcf", action="store_true", help="Keep the original VCF file output from Mutect2")
+    callparser.add_argument("-se", "--single_end", dest="single_end", action="store_true", help="Add this argument for single-end sequences calling")
+    callparser.add_argument("-min_d", "--min_depth", dest="min_depth",
+                            default="3", type=str,
+                            help="Minimum depth to consider a position "
+                                 "callable. By default 3 reads")
+    callparser.add_argument("-min_q", "--min_qual", dest="min_qual",
+                            default="15", type=str,
+                            help="Minimum base quality to consider a position "
+                                 "callable. By default 15.")
+    callparser.add_argument("-min_f", "--min_freq", dest="min_freq",
+                            default="0.05", type=percentage_float,
+                            help="Minimum freq to consider an "
+                                 "alternative allele."
+                                 " By default 0.05.")
+    callparser.add_argument("-filt_d", "--filter_depth", dest="filter_depth",
+                            default=20, type=int,
+                            help="Minimum depth to include a SNP in the"
+                                 " EPI.snp file. By default 20 reads")
+    callparser.add_argument("-filt_f", "--filter_freq", dest="filter_freq",
+                            default=0.9, type=percentage_float,
+                            help="Minimum alternative allele frequency"
+                                 " to include a SNP in the EPI.snp file"
+                                 ". By default 0.9")
+    callparser.add_argument("--skip_dens_filt", dest="skip_dens_filt",
+                            action="store_true",
+                            help="Skip the density filter"
+                                 ". By default is activated")
+    callparser.add_argument("-w", "--window", dest="window",
+                            default=10, type=int,
+                            help="Size of the slidding window used for the"
+                                 " density of SNPs filtering."
+                                 " By default 10 pb.")
+    callparser.add_argument("-dens", "--density", dest="density",
+                            default=3, type=int,
+                            help="Density cut-off. If more or equal number of"
+                                 " SNPs than the cut-off are found in the "
+                                 "defined slidding window, they will be"
+                                 " removed. By default 3.")
+
+    # PARSER CONSENSUS
+    consparser = subparsers.add_parser("consensus", help="Generate consensus "
+                                       "snps sequences by applying the "
+                                       "previously called with 'calling' "
+                                       "to the reference MTBC ancestor genome")
+    consparser.add_argument("-i", "--include", dest="paths", default=".",
+                            nargs="*",
+                            help=("Paths to the folders containing all the "
+                                  "samples that have to be included in the "
+                                  "complete multifasta."
+                                  " Default: current folder"))
+    consparser.add_argument("-l", "--sample_list", dest="sample_list", action="store_true",
+                            help="Add if you wish to pass a list of samples as input file")
+    consparser.add_argument("-t", "--threads", dest="threads", default=1,
+                            choices=range(1, mp.cpu_count()), type=int,
+                            help=("Number of threads to use. Default: 1"))
+    consparser.add_argument("-p", "--prefix", dest="outfile",
+                            help=("Prefix that will be used for naming final"
+                                  " files. By default "
+                                  "current date (YearMonthDay)"))
+
+    # PARSER RESISTANCE
+    resparser = subparsers.add_parser("resistance",
+                                      help="Analyze a .DR.snp.final file "
+                                           "to look for genomic determinants of "
+                                           "drug resistance")
+    resparser.add_argument("-p", "--prefix", dest="prefix")
+    resparser.add_argument("-r", "--report", dest="report",
+                           action="store_true",
+                           help=("Generate a tabular resistance report "
+                                 "using all samples present at the current directory"))
+
+    # PARSER TYPING
+    typparser = subparsers.add_parser("typing",
+                                      help="Infer the MTBC lineage of samples"
+                                           "using a list of lineage definitory"
+                                           " SNPs")
+    # PARSER ORGANIZE
+    orgparser = subparsers.add_parser("organize",
+                                      help="Organize results, distributing "
+                                           "outputs in different folders")
+
+    # PARSER DISTANCES
+    distparser = subparsers.add_parser("distances",
+                                       help="Calculate pairwise genetic"
+                                            " distance (in number of SNPs)"
+                                            " from a multifasta file.")
+    distparser.add_argument("-p", "--prefix", dest="outfile",
+                            help=("Prefix that will be used for naming final"
+                                  " files. By default "
+                                  "current date (YearMonthDay)"))
+    distparser.add_argument("-f", "--fasta", dest="fasta",
+                            required=True,
+                            help=("FASTA file containing the sequences"))
+    distparser.add_argument("-t", "--threads", dest="threads", default=1,
+                            choices=range(1, mp.cpu_count()), type=int,
+                            help=("Number of threads to use. Default: 1"))
+    distparser.add_argument("-l", "--limit", dest="limit",
+                            type=int,
+                            default=-1,
+                            help=("Reduces the output to the LIMIT "
+                                  "distance specified."))
+
+    # PARSER MULTIQC
+    multiparser = subparsers.add_parser("multiqc",
+                                        help="Generate a unique report by "
+                                             "joining logs and reports from "
+                                             "the different programs used at "
+                                             "ThePipeline2")
+    multiparser.add_argument("-o", "--output", dest="output",
+                             default="multiqc_report",
+                             help=("Output file. Default: multiqc_report"))
+    multiparser.add_argument("-f", "--folder", dest="folder", default=".",
+                             help=("Folder were MultiQC must search reports"
+                                   " and logs. By default, the folder in which"
+                                   " ThePipeline2 is being executed"))
+
+    # PARSER GETCLUSTERS
+    clustparser = subparsers.add_parser("getclusters",
+                                        help="Calculate transmission clusters"
+                                             " given a genetic distances"
+                                             " file and a SNP threshold.")
+    clustparser.add_argument("-d", "--distances",
+                             help=("Genetic distances file, as "
+                                   "obtained by ThePipeline2 distances"),
+                             dest="distfile",
+                             required=True)
+    clustparser.add_argument("-p", "--prefix", dest="outfile",
+                             help=("Prefix that will be used for naming final"
+                                   " files."), required=True)
+    clustparser.add_argument("-sep", metavar="[Space|Tab]",
+                             help=("Character separator of distance file."
+                                   " Default: Tab"),
+                             default="Tab", dest="sep",
+                             choices={"Space", "Tab"})
+    clustparser.add_argument("-osi", "--output-senyorito-irving",
+                             dest="output", action="store_true",
+                             help=("Produce output with one sample per line."))
+    clustparser.add_argument("-t", "--threshold", dest="threshold",
+                            type=int,
+                            help=("Threshold at to which calculate "
+                                  "transmission clusters. If not specified, "
+                                  "it will be 0, 5, 10, 12, 15."))
+
+
+    args = parser.parse_args()
+
+    if len(sys.argv) <= 1:
+        parser.print_help()
+
+    return args
+
+
+def RunSubcommand(args):
+    ''' Run subcommand with proper arguments'''
+    import sys
+    import os
+
+    # Execute subcommand
+
+    if args.subcommand == "fastclean":
+        from PipeModules.FastClean import FastClean
+        FastClean(args)
+
+    elif args.subcommand == "kraken":
+        from PipeModules.Kraken import Kraken
+        Kraken(args)
+
+    elif args.subcommand == "mapping":
+        from PipeModules.Mapping import Mapping
+        Mapping(args)
+
+    elif args.subcommand == "coverage":
+        from PipeModules.Coverage import CalcCoverage
+        # need to import libstdc++.so.6 updated library for
+        # bedtools to work. Is in /PipeModules/Configs/lib
+        dirname = os.path.dirname(os.path.realpath(__file__))
+        os.environ['LD_LIBRARY_PATH'] = os.path.join(dirname,
+                                                     'data',
+                                                     'libs')
+        CalcCoverage(args)
+
+    elif args.subcommand == "calling":
+        from PipeModules.Calling import Calling
+        import locale
+        locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+        Calling(args)
+
+    elif args.subcommand == "annotation_filter":
+        from PipeModules.AnnotationFilter import FilterSnps
+        sys.stderr.write("\033[94mFiltering PPE/repeat/phage regions\n\033[0m")
+        FilterSnps(args)
+
+    elif args.subcommand == "consensus":
+        from PipeModules.Consensus import Consensus
+        Consensus(args)
+
+    elif args.subcommand == "resistance":
+        from PipeModules.Resistance import Resistance
+        Resistance(args)
+
+    elif args.subcommand == 'typing':
+        from PipeModules.Typing import Typing
+        Typing()
+
+    elif args.subcommand == 'distances':
+        from PipeModules.Distances import Distances
+        Distances(args)
+
+    elif args.subcommand == "organize":
+        from PipeModules.Organize import Organize
+        Organize()
+
+    elif args.subcommand == "multiqc":
+        from PipeModules.Multiqc import Multiqc
+        Multiqc(args)
+
+    elif args.subcommand == "getclusters":
+        from PipeModules.Clusters import GetClusters
+        GetClusters(args)
+
+
+def main():
+    import sys
+
+    # print banner
+    if len(sys.argv) <= 1 or sys.argv[1] == '-h':
+        print_banner()
+
+    # Parse args
+    args = parse_args()
+
+    RunSubcommand(args)
+
+
+if __name__ == "__main__":
+    main()

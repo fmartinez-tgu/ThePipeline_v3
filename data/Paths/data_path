@@ -1,0 +1,6 @@
+# This file contains the absolute path to the data that will be used by ThePipeline2
+# Paths must be absolute, as some databases and files could not be in ThePipeline2 folder
+# Comments must be headed by "#"
+reference=/data/Databases/MTB_ancestor/MTB_ancestor_reference.fasta
+krakenDB=/data/Databases/KrakenDB/KRefSeqHuman
+ancestor_dict=/data/Databases/MTB_ancestor/MTB_ancestor_reference.picard.dict
