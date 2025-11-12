@@ -112,6 +112,12 @@ Final outputs
 Notes
 - The config file provides extra switches (like `--cut_by_quality3`, `--cut_window_size=10`, `--cut_mean_quality=20`, `--length_required=50`, `--correction`) — each parameter must be on its own (non-comment) line in `fastp_default.config` or a user-provided file.
 
+Example
+```bash
+python3 ThePipeline3 fastclean -f sample_A_R1.fastq.gz sample_A_R2.fastq.gz -p sample_A -t 4 --config default_config
+```
+Outputs: `sample_A.P1.clean.fastq.gz`, `sample_A.P2.clean.fastq.gz`, `sample_A.fastp.json`, `sample_A.cleanlog`.
+
 KRAKEN (PipeModules/Kraken.py)
 --------------------------------
 Purpose
@@ -157,6 +163,12 @@ Notes and pitfalls
 - The `MakeReadList` implementation uses subprocess piping and decoding; ensure locale and encoding work when running on different systems.
 - Kraken databases are very large — `--preload` will try to load the DB into RAM and may require 100s of GB.
 
+Example
+```bash
+python3 ThePipeline3 kraken -f sample_A.P1.clean.fastq.gz sample_A.P2.clean.fastq.gz --paired -p sample_A --classify --filter --report
+```
+Outputs: `sample_A.P1.filtered.fastq.gz`, `sample_A.P2.filtered.fastq.gz`, `sample_A.genus.contaminants`, `sample_A.species.contaminants`, `sample_A.nfilter`.
+
 MAPPING (PipeModules/Mapping.py)
 ---------------------------------
 Purpose
@@ -200,6 +212,12 @@ Final outputs
 Notes
 - Read group (@RG) is set using the prefix and some fixed fields to ensure GATK compatibility.
 
+Example
+```bash
+python3 ThePipeline3 mapping -f sample_A.P1.filtered.fastq.gz sample_A.P2.filtered.fastq.gz -p sample_A -t 8 -c
+```
+Outputs: `sample_A.sort.bam` (or `sample_A.sort.cram` if `-c`), `sample_A.dup.metrix`, QualiMap outputs.
+
 COVERAGE (PipeModules/Coverage.py)
 ----------------------------------
 Purpose
@@ -231,6 +249,12 @@ Files removed by the module
 
 Final outputs
 - `{prefix}.meancov` — one-line human-readable summary, used by filters and reporting.
+
+Example
+```bash
+python3 ThePipeline3 coverage -p sample_A -e bam --min-depth-mean 10 --min-depth-median 30 --min-coverage 0.95
+```
+Outputs: `sample_A.coverage` (unless `--keep-coverage` omitted), `sample_A.meancov`. If sample fails thresholds and `--filter` provided, files moved to `NoPassCov/`.
 
 CALLING (PipeModules/Calling.py)
 --------------------------------
@@ -311,6 +335,12 @@ Final outputs (user-facing)
 - `{prefix}.lowcov` — low coverage positions annotated with gene
 - `{prefix}.gvcf` (kept if `--keep_gvcf`)
 
+Example
+```bash
+python3 ThePipeline3 calling -p sample_A -t 4 -min_d 3 -min_q 15 -min_f 0.05
+```
+Major outputs: `sample_A.DR.snp.final`, `sample_A.EPI.snp.final.annoF`, `sample_A.snp.minos`, `sample_A.snp.varscan`, `sample_A.snp.mutect` (depending on flags), `sample_A.wt`, `sample_A.lowcov`, `{prefix}.gvcf` (if kept via `-kgvcf`).
+
 Important flags and behaviour notes
 - `--keep_gvcf` keeps the large `{prefix}.gvcf` file (otherwise removed) and toggles gzip compression when kept.
 - `--keep_bam` keeps BAM files; by default pipeline converts to CRAM and removes BAM and its index.
@@ -358,6 +388,12 @@ Intermediate files and outputs
 
 Cleanup
 - Individual per-sample `.fas` files are removed after multi-FASTA generation.
+
+Example
+```bash
+python3 ThePipeline3 consensus -i ./ -t 4 -p study_2025
+```
+Outputs: `study_2025.SNP_table.txt`, `study_2025.mf.fasta`, `study_2025.mf_gap.fasta`, `study_2025.mf_gap.snp-sites.fasta`, and related SNP tables.
 
 RESISTANCE (PipeModules/Resistance.py)
 -------------------------------------
@@ -462,57 +498,7 @@ History
 Version
 - `PipeModules.Version.version(program)` reads `data/Configs/software_versions.txt` and returns the recorded version string for a program key.
 
-Examples (quick start)
-----------------------
-These example commands are dry-run style CLI invocations. Replace `sample_A_R1.fastq.gz` and `sample_A_R2.fastq.gz` with your files and `PREFIX` with the sample name.
 
-1) Clean reads with fastp (paired):
-
-```bash
-python3 ThePipeline3 fastclean -f sample_A_R1.fastq.gz sample_A_R2.fastq.gz -p sample_A -t 4 --config default_config
-```
-
-Outputs: `sample_A.P1.clean.fastq.gz`, `sample_A.P2.clean.fastq.gz`, `sample_A.fastp.json`, `sample_A.cleanlog`.
-
-2) Classify reads and extract MTBC reads with Kraken (paired):
-
-```bash
-python3 ThePipeline3 kraken -f sample_A.P1.clean.fastq.gz sample_A.P2.clean.fastq.gz --paired -p sample_A --classify --filter --report
-```
-
-Outputs: `sample_A.P1.filtered.fastq.gz`, `sample_A.P2.filtered.fastq.gz`, `sample_A.genus.contaminants`, `sample_A.species.contaminants`, `sample_A.nfilter`.
-
-3) Map filtered reads to reference:
-
-```bash
-python3 ThePipeline3 mapping -f sample_A.P1.filtered.fastq.gz sample_A.P2.filtered.fastq.gz -p sample_A -t 8 -c
-```
-
-Outputs: `sample_A.sort.bam` (or `sample_A.sort.cram` if `-c`), `sample_A.dup.metrix`, QualiMap outputs.
-
-4) Calculate coverage and optionally apply coverage filter:
-
-```bash
-python3 ThePipeline3 coverage -p sample_A -e bam --min-depth-mean 10 --min-depth-median 30 --min-coverage 0.95
-```
-
-Outputs: `sample_A.coverage` (unless `--keep-coverage` omitted), `sample_A.meancov`. If sample fails thresholds and `--filter` provided, files moved to `NoPassCov/`.
-
-5) Variant calling pipeline (VarScan/Mutect2/Minos) :
-
-```bash
-python3 ThePipeline3 calling -p sample_A -t 4 -min_d 3 -min_q 15 -min_f 0.05
-```
-
-Major outputs: `sample_A.DR.snp.final`, `sample_A.EPI.snp.final.annoF`, `sample_A.snp.minos`, `sample_A.snp.varscan`, `sample_A.snp.mutect` (depending on flags), `sample_A.wt`, `sample_A.lowcov`, `{prefix}.gvcf` (if kept via `-kgvcf`).
-
-6) Generate consensus and multifasta
-
-```bash
-python3 ThePipeline3 consensus -i ./ -t 4 -p study_2025
-```
-
-Outputs: `study_2025.SNP_table.txt`, `study_2025.mf.fasta`, `study_2025.mf_gap.fasta`, `study_2025.mf_gap.snp-sites.fasta`, and related SNP tables.
 
 Files the pipeline often removes (summary)
 ----------------------------------------
