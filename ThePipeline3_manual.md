@@ -84,12 +84,15 @@ Purpose
 - Clean raw FASTQ reads using fastp, produce compressed cleaned FASTQ, a JSON and a cleanlog.
 
 CLI parameters (as in `ThePipeline3` parser):
-- -f, --fastq (required, nargs="*") — one or two input fastq paths. If one file: single-end mode; if two: paired-end mode. Required.
-- -c, --config (default: "default_config") — path to a config file listing additional fastp CLI parameters (one per line). If `default_config`, the pipeline reads `data/Configs/fastp_default.config`.
-- -t, --threads (default: "1") — number of threads to pass to fastp. The code forces a maximum of 16 (fastp limitation).
-- -v, --verbose (flag) — if set, prints the fastp command line before running it.
-- --phred64 (flag) — if set, adds `--phred64` to fastp to indicate input is Phred+64; output will be Phred+33.
-- -p, --prefix (required) — prefix used to name output files.
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-f`, `--fastq` | One or two input FASTQ file paths. One file = single-end, two files = paired-end. | (required) | `nargs="*"` in parser; required for fastclean. |
+| `-c`, `--config` | Path to a fastp config file (one parameter per line). | `default_config` | If `default_config`, reads `data/Configs/fastp_default.config`. |
+| `-t`, `--threads` | Number of threads passed to fastp. | `1` | Code caps threads at 16. |
+| `-v`, `--verbose` | Print the fastp command before running. | (flag) | No value; present/absent. |
+| `--phred64` | Treat input as Phred+64 (convert to Phred+33). | (flag) | Adds `--phred64` to fastp when set. |
+| `-p`, `--prefix` | Output filename prefix used for produced files. | (required) | Required parameter used to name outputs. |
 
 Required inputs
 - One or two FASTQ files (gzipped or uncompressed depending on paths provided). The pipeline will not check file extension; it forwards the filenames to fastp.
@@ -115,18 +118,21 @@ Purpose
 - Classify reads with Kraken, translate taxonomy labels, extract reads that match a provided taxonomic string (by default `Mycobacterium tuberculosis`), and produce contamination reports.
 
 CLI parameters (as in `ThePipeline3` parser):
-- -f, --fastq (nargs="*") — input fastq(s) to classify. Required for `--classify` and `--filter` operations.
-- -c, --compressed (flag) — whether input fastqs are gzip compressed; if set, `--gzip-compressed` will be added to kraken command.
-- --paired (flag) — treat input as paired reads when running kraken.
-- -m, --matching (default: "Mycobacterium tuberculosis") — string to match in labels for downstream filtering (used in `MakeReadList`).
-- -p, --prefix (required) — prefix for output files.
-- --db (default False) — path to a kraken database; if not provided, `PipeModules.Repository.Data()`'s `krakenDB` value is used.
-- -t, --threads (default: "1") — number of threads for kraken.
-- --preload (flag) — add `--preload` to kraken to pre-load the DB in RAM.
-- --classify (flag) — run kraken classification and create `{prefix}.kraken`.
-- --filter (flag) — extract reads matching the `--matching` pattern into `{prefix}.filtered.fastq` (.P1/.P2 for paired).
-- --noclean (flag) — when present, do not delete intermediate kraken files (`{prefix}.kraken`, `{prefix}.labels`, `{prefix}.filtered.readlist`).
-- -r, --report (flag) — generate `{prefix}.kraken.report` and parse to `{prefix}.genus.contaminants` and `{prefix}.species.contaminants`.
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-f`, `--fastq` | Input FASTQ file(s) to classify (single or paired). | (required for classify/filter) | `nargs="*"` — required when using `--classify` or `--filter`. |
+| `-c`, `--compressed` | Tell Kraken input FASTQs are gzip compressed. | (flag) | Adds `--gzip-compressed` to kraken invocation. |
+| `--paired` | Treat input as paired reads. | (flag) | Adjusts kraken invocation for paired data. |
+| `-m`, `--matching` | String to match in kraken labels for read extraction. | `Mycobacterium tuberculosis` | Used by `MakeReadList` to identify reads to keep. |
+| `-p`, `--prefix` | Output filename prefix. | (required) | Required; used to name outputs. |
+| `--db` | Path to a Kraken database. | `False` (use data_path krakenDB) | If not provided, `data/Paths/data_path`'s `krakenDB` is used. |
+| `-t`, `--threads` | Number of threads for Kraken. | `1` | Integer. |
+| `--preload` | Preload the Kraken database into RAM. | (flag) | May require very large RAM. |
+| `--classify` | Run Kraken classification to create `{prefix}.kraken`. | (flag) | Produces raw kraken output. |
+| `--filter` | Extract reads matching `--matching` into filtered FASTQs. | (flag) | Produces `{prefix}.filtered.fastq` or paired filtered FASTQs. |
+| `--noclean` | Keep Kraken intermediate files instead of deleting them. | (flag) | Prevents removal of `{prefix}.kraken`, `{prefix}.labels`, `{prefix}.filtered.readlist`. |
+| `-r`, `--report` | Generate Kraken report and parse contaminants tables. | (flag) | Produces `{prefix}.kraken.report` and parsed tables. |
 
 Required inputs
 - FASTQ(s) for `--classify`/`--filter` options. If `--db` not provided, a `krakenDB` path must exist in `data/Paths/data_path`.
@@ -157,16 +163,19 @@ Purpose
 - Map reads to a reference with `bwa mem`, filter by mapQ, sort and (optionally) remove duplicates with Picard, hardclip reads with `samclip_h`, run QualiMap for QC and optionally convert to CRAM.
 
 CLI parameters (as in `ThePipeline3`):
-- -f, --fastq (required, nargs="*") — one or two fastq files (single or paired).
-- -r, --reference (default: from `data/Paths/data_path`) — reference fasta path; when not provided, the pipeline uses the MTBC ancestor provided in data_path.
-- -p, --prefix (required) — prefix for outputs.
-- -t, --threads (default: "1") — number of threads for bwa/samtools/qualimap.
-- --keep-dupbam (flag) — if set, the duplicate-marked BAMs are kept alongside deduplicated BAMs (renames are used by the code).
-- -i, --index (flag) — run `bwa index -a bwtsw` on the reference before mapping (use only first time or when reference changed).
-- --no-dedup (flag) — skip duplicate removal step.
-- -mapq, --mapq (mapq_cutoff, default: 0) — integer threshold; if >0 an awk filter filters alignments to keep MAPQ >= mapq_cutoff.
-- -nhc, --no_hard_clipping (flag) — if set, skip the `hardclipping` step executed by `samclip_h`.
-- -c, --cram (flag) — if set, produce CRAM `.{prefix}.sort.cram` and remove `.sort.bam`.
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-f`, `--fastq` | One or two FASTQ files for mapping (single or paired). | (required) | `nargs="*"` in parser. |
+| `-r`, `--reference` | Reference FASTA path to map reads against. | from `data/Paths/data_path` | If omitted, uses MTBC ancestor reference from data_path. |
+| `-p`, `--prefix` | Output prefix for BAM/CRAM and QC files. | (required) | Used to name alignment outputs. |
+| `-t`, `--threads` | Number of threads for bwa/samtools/qualimap. | `1` | Integer. |
+| `--keep-dupbam` | Keep duplicate-marked BAMs alongside deduplicated BAMs. | (flag) | When set, original dup-marked files are preserved. |
+| `-i`, `--index` | Run `bwa index -a bwtsw` on the provided reference. | (flag) | Use when first indexing a new reference. |
+| `--no-dedup` | Skip duplicate removal (Picard MarkDuplicates). | (flag) | Avoids running dedup step. |
+| `-mapq`, `--mapq` | MAPQ cutoff; filter alignments with MAPQ >= cutoff. | `0` | If >0, an `awk` filter is applied. |
+| `-nhc`, `--no_hard_clipping` | Skip the hard-clipping step executed by `samclip_h`. | (flag) | Useful if hard clipping is not desired. |
+| `-c`, `--cram` | Produce CRAM output (`{prefix}.sort.cram`) and remove BAM. | (flag) | Requires samtools with CRAM support and reference available. |
 
 Required inputs
 - FASTQ(s) and reference. If `--index` used, reference will be indexed by `bwa`.
@@ -197,15 +206,18 @@ Purpose
 - Calculate per-base coverage with bedtools `genomeCoverageBed` and create summary files. Optionally filter samples that do not meet coverage thresholds and move their files to `NoPassCov/`.
 
 CLI parameters (as in `ThePipeline3`):
-- -r, --reference (default: data reference) — reference for genome length and bedtools.
-- -e, --extension (default: "bam", choices {"bam","cram"}) — whether to read `.sort.bam` or `.sort.cram`.
-- -p, --prefix (required) — sample prefix (the coverage is computed for `{prefix}.sort.bam` or `{prefix}.sort.cram`).
-- -f, --filter (flag) — If set, samples that don't meet thresholds are moved to `NoPassCov/`.
-- --min-depth-mean (default: 0) — minimum mean depth required (MeanCoverage uses this when filtering).
-- --min-depth-median (default: 20) — minimum median depth required for pass.
-- --min-coverage (default: 0.95) — minimum genomic fraction covered at `--depth4cov` (validated via `percentage_float` to be between 0.0 and 1.0).
-- --keep-coverage (flag) — if set, keep `{prefix}.coverage` files; otherwise they are removed after meancov calculation.
-- --depth4cov (default: 10) — minimum depth considered for counting a base as covered for genome coverage.
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-r`, `--reference` | Reference FASTA for genome length and bedtools. | data reference (from data_path) | If omitted, pipeline uses default data reference. |
+| `-e`, `--extension` | Input alignment extension to use (`.sort.bam` or `.sort.cram`). | `bam` | Choices: `bam`, `cram`. |
+| `-p`, `--prefix` | Sample prefix for coverage outputs. | (required) | Coverage computed for `{prefix}.sort.bam` or `{prefix}.sort.cram`. |
+| `-f`, `--filter` | Move samples that don't meet thresholds to `NoPassCov/`. | (flag) | When set performs gating based on thresholds. |
+| `--min-depth-mean` | Minimum mean depth required for pass. | `0` | Numeric. |
+| `--min-depth-median` | Minimum median depth required for pass. | `20` | Numeric. |
+| `--min-coverage` | Minimum fraction of genome covered at `--depth4cov`. | `0.95` | Validated via `percentage_float` (0.0-1.0). |
+| `--keep-coverage` | Keep the per-base `{prefix}.coverage` files after summary. | (flag) | By default per-base coverage is removed. |
+| `--depth4cov` | Depth threshold to consider a base as covered for genome coverage fraction. | `10` | Numeric depth threshold. |
 
 Required inputs
 - `{prefix}.sort.bam` or `{prefix}.sort.cram` depending on `--extension`. If `cram` selected, `CalcCoverage()` first uses samtools view to stream BAM to genomeCoverageBed.
@@ -226,22 +238,25 @@ Purpose
 - Variant discovery and adjudication: VarScan2 (pileup2snp/indel), GATK Mutect2-based calling, multiallelic handling, Minos adjudication (via Singularity), SnpEff annotation (when reference corresponds to MTB ancestor/H37Rv), filtering, EPI and density filtering, DR extraction and resistance-ready outputs.
 
 CLI parameters (as parsed in `ThePipeline3`):
-- -e, --extension (dest: ext, default: ".sort.bam") — extension used to find mapping files; should be `.sort.bam` or `.sort.cram` (Mutect2/VarScan expect either). The code validates via `check_extension()`.
-- -r, --reference (default: data reference) — reference fasta path.
-- -p, --prefix (required) — sample prefix.
-- -t, --threads (default: "1") — threads for GATK/samtools.
-- -kgvcf, --keep_gvcf (flag) — keep the generated `.gvcf` file (otherwise removed by default).
-- -kbam, --keep_bam (flag) — keep BAM files instead of converting to CRAM and removing BAMs.
-- -kmvcf, --keep_mutect2_vcf (flag) — keep the original Mutect2 VCF (mutect `*_unfiltered.vcf` / intermediate VCFs). Controls whether `mutect2_vcf_to_tab()` removes original VCFs.
-- -se, --single_end (flag) — indicate the reads are single-end for Minos adjudication (changes Minos `--reads` invocation and file names).
-- -min_d, --min_depth (default: "3") — minimum depth considered callable (passed to Mutect2 `--callable-depth` and used in other parts). String in parser but used as numeric later.
-- -min_q, --min_qual (default: "15") — minimum base quality for callable positions (Mutect2 `-mbq` parameter).
-- -min_f, --min_freq (default: "0.05") — minimum allele frequency to consider an alternative (applies to some filters/VarScan settings) — validated by `percentage_float`.
-- -filt_d, --filter_depth (default: 20) — depth threshold used in EPI SNP filtering (EPI.snp file creation).
-- -filt_f, --filter_freq (default: 0.9) — frequency threshold (as float 0.9) to include a SNP in EPI.snp files.
-- --skip_dens_filt (flag) — skip density filter stage (densityfilter).
-- -w, --window (default: 10) — sliding window size (bp) used for density filtering.
-- -dens, --density (default: 3) — density cutoff: number of SNPs within `window` triggers removal.
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-e`, `--extension` | Extension used to find mapping files (`.sort.bam` or `.sort.cram`). | `.sort.bam` | Validated by `check_extension()`. |
+| `-r`, `--reference` | Reference FASTA path. | data reference (from data_path) | If omitted, pipeline uses default data reference. |
+| `-p`, `--prefix` | Sample prefix. | (required) | Used to find mapping files and name outputs. |
+| `-t`, `--threads` | Threads for GATK/samtools. | `1` | Integer. |
+| `-kgvcf`, `--keep_gvcf` | Keep the generated `.gvcf` file. | (flag) | Otherwise the gVCF is removed by default. |
+| `-kbam`, `--keep_bam` | Keep BAM files instead of converting to CRAM and removing them. | (flag) | Useful for debugging or workflow compatibility. |
+| `-kmvcf`, `--keep_mutect2_vcf` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are converted/removed. |
+| `-se`, `--single_end` | Indicate reads are single-end for Minos adjudication. | (flag) | Alters `Minos()` `--reads` invocation. |
+| `-min_d`, `--min_depth` | Minimum depth considered callable. | `3` | Passed to Mutect2 `--callable-depth` and used in filters. |
+| `-min_q`, `--min_qual` | Minimum base quality for callable positions. | `15` | Passed as Mutect2 `-mbq`. |
+| `-min_f`, `--min_freq` | Minimum allele frequency to consider an alternative. | `0.05` | Validated via `percentage_float`. |
+| `-filt_d`, `--filter_depth` | Depth threshold for EPI SNP filtering. | `20` | Numeric. |
+| `-filt_f`, `--filter_freq` | Frequency threshold to include a SNP in EPI files. | `0.9` | Float between 0 and 1. |
+| `--skip_dens_filt` | Skip density filtering stage. | (flag) | When set densityfilter is not applied. |
+| `-w`, `--window` | Sliding window size (bp) for density filtering. | `10` | Integer bp window. |
+| `-dens`, `--density` | Density cutoff: number of SNPs within `window` that triggers removal. | `3` | Integer SNP count. |
 
 Required inputs
 - `{prefix}{ext}` where `ext` matches `--extension` (e.g. `.sort.bam` or `.sort.cram`) — mapping file produced by mapping module.
@@ -322,10 +337,13 @@ Purpose
 - Build non-redundant SNP tables across all samples, generate per-sample consensus FASTAs and multiFASTAs, run snp-sites to create SNP-only alignments, and produce final multi-FASTA and SNP tables useful for phylogenetics.
 
 CLI parameters (driver `consensus` parser):
-- -i, --include (dest `paths`, default '.') nargs="*" — one or more paths (folders) to samples that contain `*.EPI.snp.final.annoF` files; these will be included in the multifasta.
-- -l, --sample_list (flag) — if set, treat `paths` as a list of prefixes (i.e., a list of sample prefixes) to include instead of paths with folders.
-- -t, --threads (default 1) — number of threads for parallel steps.
-- -p, --prefix (dest `outfile`) — prefix used to name final files (defaults to YYYYMMDD if not provided).
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-i`, `--include` | Paths or folders containing sample `*.EPI.snp.final.annoF` files to include. | `.` | `nargs="*"` — one or more paths. |
+| `-l`, `--sample_list` | Treat `paths` as a list of sample prefixes rather than folders. | (flag) | When set, `paths` are interpreted as sample prefixes. |
+| `-t`, `--threads` | Number of threads for parallel steps. | `1` | Integer. |
+| `-p`, `--prefix` | Output prefix for final multifasta/SNP table files. | (defaults to YYYYMMDD) | `dest`=`outfile` in parser. |
 
 Inputs
 - `{prefix}.EPI.snp.final.annoF` — annotated SNP files for each sample (present in each sample folder or prefix list)
@@ -379,10 +397,13 @@ Purpose
 - Calculate pairwise genetic distances using the vendored/installed `pairsnp` package.
 
 CLI parameters (driver `distances` parser):
-- -p, --prefix (dest `outfile`) — output prefix (defaults to YYYYMMDD).
-- -f, --fasta (required) — FASTA file containing sequences (e.g., `*.mf_gap.snp-sites.fasta`).
-- -t, --threads (default 1) — threads for pairsnp.
-- -l, --limit (default -1) — optionally filter output distances to those <= limit.
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-p`, `--prefix` | Output prefix for distance files (`outfile`). | (defaults to YYYYMMDD) | `dest`=`outfile`. |
+| `-f`, `--fasta` | Input FASTA file with sequences (e.g., `*.mf_gap.snp-sites.fasta`). | (required) | Required parameter. |
+| `-t`, `--threads` | Number of threads for pairsnp. | `1` | Integer. |
+| `-l`, `--limit` | Filter output to distances <= limit. | `-1` | If `-1` no filtering is applied. |
 
 Outputs
 - `{outfile}.genetic_distances.tsv` — three-column table: Sequence_1, Distance, Sequence_2. If `--limit` set, an additional filtered file is written.
@@ -393,11 +414,14 @@ Purpose
 - Given a distances file (output of `distances`), compute clusters at a series of SNP thresholds (0,5,10,12,15 by default) and write `{prefix}.clusters_{threshold}.tsv` files (or `prov` intermediate) listing clusters and members.
 
 CLI parameters (driver `getclusters` parser):
-- -d, --distances (required) — distances file.
-- -p, --prefix (required) — output prefix.
-- -sep (default Tab) — separator of distances input (Tab or Space).
-- -osi (flag) — if set, produce alternate per-line sample output format (one sample per line) compatible with the 'Senyorito Irving' style.
-- -t, --threshold — single threshold to compute (otherwise computes default set 0/5/10/12/15).
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-d`, `--distances` | Input distances file (three-column from `distances`). | (required) | Required. |
+| `-p`, `--prefix` | Output prefix for cluster files. | (required) | Required. |
+| `-sep` | Separator for distances input (`Tab` or `Space`). | `Tab` | Controls parsing of the distances file. |
+| `-osi` | Output clusters in alternate one-sample-per-line format. | (flag) | Produces OSI style output. |
+| `-t`, `--threshold` | Compute clusters at a single threshold instead of the default set. | (none) | If omitted, computes default thresholds 0/5/10/12/15. |
 
 Outputs
 - `{outfile}.clusters_{threshold}.tsv` — cluster files filtered to clusters of size >=2.
@@ -408,8 +432,11 @@ Purpose
 - Run MultiQC collecting logs and reports produced by the pipeline (fastp JSON, kraken reports, qualimap outputs, etc.). Uses a bundled MultiQC environment located in `Programs/MultiQC_env/` and config `data/Configs/multiqc.config`.
 
 CLI parameters (driver `multiqc` parser):
-- -o, --output (default `multiqc_report`) — output filename.
-- -f, --folder (default '.') — folder to search for reports and logs.
+
+| Parameter | Description | Default | Notes |
+|---|---|---:|---|
+| `-o`, `--output` | Output name for the MultiQC report. | `multiqc_report` | File/directory base name for the report. |
+| `-f`, `--folder` | Folder to search for logs and reports to include. | `.` | Path to search recursively. |
 
 Outputs
 - `multiqc` output directory and `multiqc_report.html` (or filename defined by `--output`).
