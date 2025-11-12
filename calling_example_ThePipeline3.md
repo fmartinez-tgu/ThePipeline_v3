@@ -108,16 +108,5 @@ Notes and tips
 - Minos is executed via Singularity in this pipeline. Install Singularity on
   your host if you want to run Minos, or adapt the `Calling.Minos` call to use
   a local Minos installation.
-
-Further work I can do
-----------------------
-- Add an end-to-end "dry-run" script that prints (but does not execute) the
-  full set of commands for a sample to ease dry-runs.
-- Create a small example dataset and a simple smoke-test script (fastq small
-  simulated reads) to validate the environment.
-
-If you'd like either of the above, tell me which and I'll add it to the
-repository.
-
-# ThePipeline_v3
+  
  
