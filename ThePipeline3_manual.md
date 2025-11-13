@@ -5,27 +5,26 @@ This manual documents ThePipeline3 (Python-based), its submodules in `PipeModule
 
 Contents
 --------
-- About
-- Dependencies (short)
-- Layout and configuration files imported by the pipeline
-- How the driver works (`ThePipeline3`)
-- Per-module reference (parameters, inputs, intermediate and final outputs)
-  - fastclean (PipeModules/FastClean.py)
-  - kraken (PipeModules/Kraken.py)
-  - mapping (PipeModules/Mapping.py)
-  - coverage (PipeModules/Coverage.py)
-  - calling (PipeModules/Calling.py)
-  - annotation_filter (PipeModules/AnnotationFilter.py)
-  - consensus (PipeModules/Consensus.py)
-  - resistance (PipeModules/Resistance.py)
-  - typing (PipeModules/Typing.py)
-  - distances (PipeModules/Distances.py)
-  - getclusters / clusters (PipeModules/Clusters.py)
-  - multiqc (PipeModules/Multiqc.py)
-  - organize (PipeModules/Organize.py)
-  - helpers: Repository, History, Version
-- Examples (command lines)
-- Troubleshooting and notes
+- [About](#about)
+- [Dependencies (short)](#dependencies-short)
+- [Layout and configuration files imported by the pipeline](#layout-and-configuration-files)
+- [How the driver works (`ThePipeline3`)](#how-the-driver-works)
+- [Per-module reference (parameters, inputs, intermediate and final outputs)](#per-module-reference)
+   - [fastclean (PipeModules/FastClean.py)](#fastclean)
+   - [kraken (PipeModules/Kraken.py)](#kraken)
+   - [mapping (PipeModules/Mapping.py)](#mapping)
+   - [coverage (PipeModules/Coverage.py)](#coverage)
+   - [calling (PipeModules/Calling.py)](#calling)
+   - [annotation_filter (PipeModules/AnnotationFilter.py)](#annotation-filter)
+   - [consensus (PipeModules/Consensus.py)](#consensus)
+   - [resistance (PipeModules/Resistance.py)](#resistance)
+   - [typing (PipeModules/Typing.py)](#typing)
+   - [distances (PipeModules/Distances.py)](#distances)
+   - [getclusters / clusters (PipeModules/Clusters.py)](#getclusters)
+   - [multiqc (PipeModules/Multiqc.py)](#multiqc)
+   - [organize (PipeModules/Organize.py)](#organize)
+   - [helpers: Repository, History, Version](#helpers)
+- [Troubleshooting and tips](#troubleshooting-and-tips)
 
 About
 -----
