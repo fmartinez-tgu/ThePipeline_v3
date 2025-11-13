@@ -33,13 +33,8 @@ conda env create -f environment.yml
 conda activate thepipeline3
 ```
 
-If you prefer pip, create a Python 3.7 venv and install python packages:
+If you prefer pip, create a Python 3.7 venv and install python packages detailed in `DEPENDENCIES.txt`
 
-```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
 
 Step-by-step example (dry-run commands)
 --------------------------------------

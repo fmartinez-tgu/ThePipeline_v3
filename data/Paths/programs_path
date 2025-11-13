@@ -1,5 +1,5 @@
-# This file contains the relative path to the programs that will be used by ThePipeline2
-# Paths must be relative to the main ThePipeline2 folder
+# This file contains the relative path to the programs that will be used by ThePipeline3
+# Paths must be relative to the main ThePipeline3 folder
 # Comments must be headed by "#"
 kraken=/Programs/Kraken/kraken
 kraken_translate=/Programs/Kraken/kraken-translate

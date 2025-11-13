@@ -7,8 +7,7 @@ This repository contains:
 - `ThePipeline3` — main CLI (Command Line Interface) driver that dispatches to modules in `PipeModules/`.
 - `PipeModules/` — modular Python components for each pipeline stage (FastClean, Kraken, Mapping, Calling, Coverage, Consensus, Resistance, Typing, Distances, Clusters, MultiQC, Organize, plus helpers Repository/History/Version).
 - `data/` — configuration and reference data (paths, configs, WHO catalog, annotations and vendored `pairsnp` library).
-- `Programs/` — bundled program binaries and datasets (note: large/redistributable files have been removed; see `heavy_files_to_be_downloaded.txt`).
-- `scripts/` — helper scripts, including `download_heavy_files.sh` to (optionally) re-acquire large external artifacts.
+- `Programs/` — bundled program binaries and datasets (note: large/redistributable files, i.e. GATK and Minos image, have been removed)
 - `ThePipeline3_manual.md` — all you need to know about this Pipeline: parameters, file flows and examples.
 
 **Requirements**
@@ -61,6 +60,10 @@ ThePipeline3 calling -p sample -t 4 -e <file format>
 **Contributing**
 
 Open an issue or submit a PR for bugfixes and improvements. When adding new program versions, update `data/Configs/software_versions.txt` so history files reflect the new versions.
+
+**Contact**
+
+This pipeline was mostly developed by Mariana Gabriela López, Miguel Moreno Molina and Francisco José Martínez Martínez, members of the Tuberculosis Genomics Unit at the Biomedicine Institute of Valencia (IBV-CSIC). If you need to contact the team, please write to `tuberculosisgenomicsunit@gmail.com`
 
 **License**
 

@@ -40,4 +40,4 @@ def ThePipelineV():
     be referred to the original version
     '''
 
-    TP_version = "ThePipeline2. Chiner Special Edition"
+    TP_version = "ThePipeline3"

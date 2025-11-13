@@ -294,7 +294,7 @@ def Kraken(args):
                      " --report. All can be used at the same time.\n\033[0m")
     if args.classify:
         if not args.fastq:
-            sys.exit("\033[91m\nERROR: ThePipeline2 kraken"
+            sys.exit("\033[91m\nERROR: ThePipeline3 kraken"
                      " with the --classify option needs"
                      " input fastq files! "
                      "\nPass them using the -f argument.\n\033[0m")
@@ -307,7 +307,7 @@ def Kraken(args):
 
     if args.filterf:
         if not args.fastq:
-            sys.exit("\033[91m\nThePipeline2 kraken with"
+            sys.exit("\033[91m\nThePipeline3 kraken with"
                      " the --filter option needs"
                      " input fastq files! "
                      "\nPass them using the -f argument.\n\033[0m")

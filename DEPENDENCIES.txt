@@ -40,6 +40,7 @@ Required (used directly by the scripts):
   - upstream repo: https://github.com/gtonkinhill/pairsnp
   - Install (pip from repo): pip install git+https://github.com/gtonkinhill/pairsnp.git
   - Or use the included copy: `python -m pip install ./data/libs/pairsnp-python` (from repo root)
+  - Version present: pairsnp=0.3.1 (see data/Configs/software_versions.txt)
 
 Optional / likely useful (used in parts of the pipeline):
 
@@ -77,16 +78,19 @@ Core tools (required for the full pipeline):
   - Purpose: mapping (bwa mem)
   - Typical install: conda install -c bioconda bwa
   - Upstream: https://github.com/lh3/bwa
+  - Version present: bwa=0.7.17-r1198-dirty (see data/Configs/software_versions.txt)
 
 - samtools
   - Purpose: BAM/CRAM handling (view, sort, index)
   - Install: conda install -c bioconda samtools
   - Upstream: http://www.htslib.org/
+  - Version present: samtools=1.15 (using htslib 1.15) (see data/Configs/software_versions.txt)
 
 - picard (jar)
   - Purpose: MarkDuplicates (called via java -jar picard ...)
   - Install: conda install -c bioconda picard
   - Or download jar: https://github.com/broadinstitute/picard/releases
+  - Version present: picard=2.25.4 (see data/Configs/software_versions.txt)
 
 - fastp
   - Purpose: read cleaning
@@ -96,7 +100,7 @@ Core tools (required for the full pipeline):
 
 - kraken (Kraken 1) and kraken-report / kraken-translate
   - Purpose: taxonomic classification
-  - Version present in repository config: kraken=0.10.5-beta
+  - Version present in repository config: kraken=0.10.5-beta (see data/Configs/software_versions.txt)
   - Install: Kraken is available from bioconda: conda install -c bioconda kraken
   - Upstream: https://ccb.jhu.edu/software/kraken/
 
@@ -104,6 +108,7 @@ Core tools (required for the full pipeline):
   - Purpose: read extraction (seqtk subseq)
   - Install: conda install -c bioconda seqtk
   - Upstream: https://github.com/lh3/seqtk
+  - Version present: seqtk=1.2-r101-dirty (see data/Configs/software_versions.txt)
 
 - pigz
   - Purpose: parallel gzip (used to compress filtered fastq)
@@ -122,20 +127,24 @@ Core tools (required for the full pipeline):
   - Purpose: coverage calculations (genomeCoverageBed)
   - Install: conda install -c bioconda bedtools
   - Upstream: https://bedtools.readthedocs.io/
+  - Version present: bedtools=v2.25.0 (see data/Configs/software_versions.txt)
 
 - varscan (jar)
   - Purpose: VarScan pileup2snp
   - VarScan jar is usually downloaded (VarScan.v2.X.jar). Install via conda or download jar:
     conda install -c bioconda varscan
     or download: http://varscan.sourceforge.net/
+  - Version present: varscan=2.3.7 (see data/Configs/software_versions.txt)
 
 - GATK (gatk). Removed to avoid large files in the repository. gatk-4.2.5.0 must be downloaded
   - Purpose: Mutect2, SelectVariants, etc.
   - GATK requires Java 8+ and often a conda environment. If you need to install:
     See https://gatk.broadinstitute.org/
+  - Version noted in repo metadata: gatk=v4.2.5.0 (see data/Configs/software_versions.txt)
 
 - snpEff (java, jar)
   - Purpose: annotation of VCFs
+  - Version present: snpeff=4.2 (build 2015-12-05) (see data/Configs/software_versions.txt)
   - Install: conda install -c bioconda snpeff  OR download from https://pcingola.github.io/SnpEff/
 
 - snp-sites
@@ -147,6 +156,7 @@ Core tools (required for the full pipeline):
   - Purpose: adjudication (Minos adjudicate). The pipeline calls Minos via Singularity.
   - Minos docs: https://github.com/iqbal-lab-org/minos
   - Minos is typically run inside a Singularity or Docker container (the Calling module constructs a singularity exec command).
+  - Version present: minos=0.12.5 (see data/Configs/software_versions.txt)
 
 - snpEff (see above), and Java (OpenJDK) available on PATH
   - Install Java: sudo apt install openjdk-11-jre-headless
@@ -156,6 +166,7 @@ Core tools (required for the full pipeline):
   - Install: see https://sylabs.io/docs/
 
 - gzip / awk / grep / cut / sort / wc etc. (standard unix tools) — usually present on Linux
+  - awk noted in config as: system_awk (see data/Configs/software_versions.txt)
 
 3) Where the repo already includes programs
 -----------------------------------------
@@ -243,20 +254,3 @@ For exact tool versions that ship with this repository, inspect:
 - fastp: https://github.com/OpenGene/fastp
 - kraken: https://ccb.jhu.edu/software/kraken/
 - samtools / htslib: http://www.htslib.org/
-
-9) If you want, I can:
-- produce a ready-to-use conda environment YAML (python=3.7 + packages and bio tools),
-- create a `requirements.txt` and a minimal `environment.yml` for conda,
-- or attempt to autodetect exact versions from the `Programs/` folder binaries.
-
-Contact / verification
-----------------------
-I scanned the main driver (`ThePipeline3`) and the `PipeModules/` Python
-modules to collect the above list. If you want, I will now:
-
-- (A) generate an `environment.yml` for conda with the conservative pins shown
-    above, or
-- (B) produce a `requirements.txt` (pip) and a short README snippet with
-    example commands to create the runtime environment.
-
-Pick A or B (or ask for both) and I will add the artifacts to the repo.

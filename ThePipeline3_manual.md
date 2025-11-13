@@ -24,8 +24,8 @@ Contents
    - [multiqc (PipeModules/Multiqc.py)](#multiqc)
    - [organize (PipeModules/Organize.py)](#organize)
    - [helpers: Repository, History, Version](#helpers)
-- [Examples (command lines)](#examples)
--- [Troubleshooting and notes](#troubleshooting-and-notes)
+- [Imported data files and where they are used (explicit list)](#important)
+- [Troubleshooting and notes](#troubleshooting-and-notes)
 
 <a id="about"></a>
 About
@@ -350,6 +350,7 @@ Important flags and behaviour notes
 - `--keep_bam` keeps BAM files; by default pipeline converts to CRAM and removes BAM and its index.
 - `--kmvcf` keeps the raw Mutect2 VCF; otherwise it is converted to tab and removed.
 
+<a id="annotation_filter"></a>
 ANNOTATION FILTER (PipeModules/AnnotationFilter.py)
 -------------------------------------------------
 **Purpose**
@@ -369,6 +370,7 @@ ThePipeline3 annotation_filter -s <input_file>
 Outputs
 - `{prefix}.EPI.snp.final.annoF` and `{prefix}.EPI.snp.vcf.annoF` — filtered versions; used downstream by consensus and distances modules.
 
+<a id="consensus"></a>
 CONSENSUS (PipeModules/Consensus.py)
 -----------------------------------
 **Purpose**
@@ -411,6 +413,7 @@ python3 ThePipeline3 consensus -i ./ -t 4 -p study_2025
 ```
 Outputs: `study_2025.SNP_table.txt`, `study_2025.mf.fasta`, `study_2025.mf_gap.fasta`, `study_2025.mf_gap.snp-sites.fasta`, `study_2025.mf_gap.snp-sites.no-resis.fasta` and related SNP tables.
 
+<a id="resistance"></a>
 RESISTANCE (PipeModules/Resistance.py)
 -------------------------------------
 **Purpose**
@@ -437,7 +440,7 @@ Outputs
 Notes
 - `CorrectRes()`, included in the script by default, performs corrections for triallelic/double/triple codon handling and rewrites a corrected `.res` file.
 
-
+<a id="typing"></a>
 TYPING (PipeModules/Typing.py)
 ------------------------------
 **Purpose**
@@ -455,7 +458,7 @@ ThePipeline3 typing
 Outputs
 - `lineage_typing.csv` — lines of `Sample,Infection,Typing`.
 
-
+<a id="distances"></a>
 DISTANCES (PipeModules/Distances.py)
 -----------------------------------
 **Purpose**
@@ -478,6 +481,7 @@ ThePipeline3 distances -t 20 -f <multifasta> -p run1
 Outputs
 - `{outfile}.genetic_distances.tsv` — three-column table: Sequence_1, Distance, Sequence_2. If `--limit` set, an additional filtered file is written.
 
+<a id="getclusters"></a>
 GETCLUSTERS (PipeModules/Clusters.py)
 -------------------------------------
 **Purpose**
@@ -501,6 +505,7 @@ ThePipeline3 getclusters -d <distance_file> -thres 5 -p distance_file
 Outputs
 - `{outfile}.clusters_{threshold}.tsv` — cluster files filtered to clusters of size >=2.
 
+<a id="multiqc"></a>
 MULTIQC (PipeModules/Multiqc.py)
 -------------------------------
 **Purpose**
@@ -515,12 +520,13 @@ CLI parameters (driver `multiqc` parser):
 
 Example
 ```bash
-ThePipeline2 multiqc -o <output_name>
+ThePipeline3 multiqc -o <output_name>
 ```
 
 Outputs
 - `multiqc` output directory and `multiqc_report.html` (or filename defined by `--output`).
 
+<a id="organize"></a>
 ORGANIZE (PipeModules/Organize.py)
 ---------------------------------
 **Purpose**
@@ -534,6 +540,7 @@ Behaviour
 ThePipeline3 organize
 ```
 
+<a id="helpers"></a>
 Repository, History and Version helpers
 -------------------------------------
 **Repository**
@@ -546,6 +553,7 @@ History
 Version
 - `PipeModules.Version.version(program)` reads `data/Configs/software_versions.txt` and returns the recorded version string for a program key.
 
+<a id="important"></a>
 Imported data files and where they are used (explicit list)
 --------------------------------------------------------
 - `data/Paths/programs_path` — parsed by `PipeModules.Repository.Programs()` to find program paths.
@@ -558,6 +566,7 @@ Imported data files and where they are used (explicit list)
 - `data/resistance_positions.csv` — used when building SNP_table/resistance tables.
 - `data/snp_phylo_fixed.tsv` — phylogenetic SNP markers used by `Typing.Typing()`.
 
+<a id="troubleshooting-and-notes"></a>
 Troubleshooting and tips
 ------------------------
 - Missing programs: ensure `data/Paths/programs_path` points to valid executables (or adjust PATH). Many heavy bioinformatics packages are expected in `Programs/`.

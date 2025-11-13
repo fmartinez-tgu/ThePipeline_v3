@@ -1,0 +1,1 @@
+`minos_v0.12.5.img` was removed due to large size. Details to download the file can be found in `DEPENDENCIES.txt`

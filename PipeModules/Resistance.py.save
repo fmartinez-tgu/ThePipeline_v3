@@ -1,17 +1,17 @@
 #! /usr/bin/env python3.7
 # Copyright (C) 2024 Miguel Moreno Molina
 
-# This file is part of ThePipeline2
-# ThePipeline2 is free software: you can redistribute it and/or modify
+# This file is part of ThePipeline3
+# ThePipeline3 is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# ThePipeline2 is distributed in the hope that it will be useful,
+# ThePipeline3 is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License
-# along with ThePipeline2.  If not, see <http://www.gnu.org/licenses/>.
+# along with ThePipeline3.  If not, see <http://www.gnu.org/licenses/>.
 
 def DetectResistance(prefix):
     import os
@@ -25,7 +25,7 @@ def DetectResistance(prefix):
     modified = [] #positions that are discrepant between MTB_anc and H37Rv
     drugs = {} #position: [gene, [drugs related to the position]]
     
-    catalogue_file = "/data/ThePipeline_v2/data/catalogWHO2023_pipeline.csv"
+    catalogue_file = "/data/ThePipeline_v3/data/catalogWHO2023_pipeline.csv"
     
     with open(catalogue_file) as infile:
         next(infile)
@@ -142,7 +142,7 @@ def DetectResistance(prefix):
 
         ### SECTION 2: INDELS ###
         
-        annotation = "/data/ThePipeline_v2/data/annotation_H37Rv.csv"
+        annotation = "/data/ThePipeline_v3/data/annotation_H37Rv.csv"
         genes = {}
         with open(annotation) as inAnnot: #we load the genome annotation
             for line in inAnnot:
@@ -350,7 +350,7 @@ def CorrectRes(prefix):
     with open("{}.res".format(prefix), "r+") as input_res:
         lines = input_res.readlines()
 
-    df_catalogue = pd.read_csv("/data/ThePipeline_v2/data/catalogWHO2023_pipeline.csv", sep=",")
+    df_catalogue = pd.read_csv("/data/ThePipeline_v3/data/catalogWHO2023_pipeline.csv", sep=",")
 
     triallelic_positions = []
     with open("{}.DR.snp.final".format(prefix), "r+") as input_DR:

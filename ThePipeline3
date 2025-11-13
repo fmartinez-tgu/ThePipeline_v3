@@ -4,7 +4,7 @@
 # ThePipeline was initially wrote by Galo A. Goig, with the intention of
 # standardizing and putting together a series of scripts previously developed
 # by Inaki Comas, Galo A. Goig and Alvaro Chiner-Oms.
-# ThePipeline2 was written by Alvaro Chiner-Oms (achiner@ibv.csic.es),
+# ThePipeline3 was written by, Francisco José Martínez (fmartinez@ibv.csic.es)
 # and Miguel Moreno Molina (mamoreno@ibv.csic.es) in order to
 # simplify, upgrade and speed-up some of the analyses.
 
@@ -18,7 +18,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License
-# along with ThePipeline2.  If not, see <http://www.gnu.org/licenses/>.
+# along with ThePipeline3.  If not, see <http://www.gnu.org/licenses/>.
 
 # Let's print a nice banner
 
@@ -349,14 +349,14 @@ def parse_args():
                                         help="Generate a unique report by "
                                              "joining logs and reports from "
                                              "the different programs used at "
-                                             "ThePipeline2")
+                                             "ThePipeline3")
     multiparser.add_argument("-o", "--output", dest="output",
                              default="multiqc_report",
                              help=("Output file. Default: multiqc_report"))
     multiparser.add_argument("-f", "--folder", dest="folder", default=".",
                              help=("Folder were MultiQC must search reports"
                                    " and logs. By default, the folder in which"
-                                   " ThePipeline2 is being executed"))
+                                   " ThePipeline3 is being executed"))
 
     # PARSER GETCLUSTERS
     clustparser = subparsers.add_parser("getclusters",
@@ -365,7 +365,7 @@ def parse_args():
                                              " file and a SNP threshold.")
     clustparser.add_argument("-d", "--distances",
                              help=("Genetic distances file, as "
-                                   "obtained by ThePipeline2 distances"),
+                                   "obtained by ThePipeline3 distances"),
                              dest="distfile",
                              required=True)
     clustparser.add_argument("-p", "--prefix", dest="outfile",
