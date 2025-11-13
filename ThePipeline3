@@ -224,7 +224,7 @@ def parse_args():
     # PARSER FOR SNP and INDEL CALLING
     callparser = subparsers.add_parser("calling",
                                        help="Perform variant calling "
-                                            "with Mutect2"
+                                            "with Mutect2 "
                                             "and filter the obtained VCFs")
     callparser.add_argument("-e", "--extension", dest="ext",
                             default=".sort.bam",
