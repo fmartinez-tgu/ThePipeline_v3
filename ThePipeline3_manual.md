@@ -6,16 +6,16 @@ This manual documents ThePipeline3 (Python-based), its submodules in `PipeModule
 Contents
 --------
 - [About](#about)
-- [Dependencies (short)](#dependencies-short)
-- [Layout and configuration files imported by the pipeline](#layout-and-configuration-files)
-- [How the driver works (`ThePipeline3`)](#how-the-driver-works)
+- [Short Dependencies](#short-dependencies)
+- [Layout and configuration files imported by the pipeline](#layout-and-configuration-files-imported-by-the-pipeline)
+- [How the driver works (ThePipeline3)](#how-the-driver-works-thepipeline3)
 - [Per-module reference (parameters, inputs, intermediate and final outputs)](#per-module-reference)
    - [fastclean (PipeModules/FastClean.py)](#fastclean)
    - [kraken (PipeModules/Kraken.py)](#kraken)
    - [mapping (PipeModules/Mapping.py)](#mapping)
    - [coverage (PipeModules/Coverage.py)](#coverage)
    - [calling (PipeModules/Calling.py)](#calling)
-   - [annotation_filter (PipeModules/AnnotationFilter.py)](#annotation-filter)
+   - [annotation_filter (PipeModules/AnnotationFilter.py)](#annotation_filter)
    - [consensus (PipeModules/Consensus.py)](#consensus)
    - [resistance (PipeModules/Resistance.py)](#resistance)
    - [typing (PipeModules/Typing.py)](#typing)
@@ -24,18 +24,22 @@ Contents
    - [multiqc (PipeModules/Multiqc.py)](#multiqc)
    - [organize (PipeModules/Organize.py)](#organize)
    - [helpers: Repository, History, Version](#helpers)
-- [Troubleshooting and tips](#troubleshooting-and-tips)
+- [Examples (command lines)](#examples)
+-- [Troubleshooting and notes](#troubleshooting-and-notes)
 
+<a id="about"></a>
 About
 -----
 ThePipeline3 is a modular pipeline written in Python 3.7 intended for bacterial (MTBC) whole-genome sequencing processing: read cleaning, taxonomic filtering, mapping, variant calling, annotation, consensus generation, typing and resistance prediction.
 
+<a id="short-dependencies"></a>
 Short Dependencies
 ------------------
 - Python 3.7
 - Python packages: pandas, PyVCF (vcf), pairsnp (vendored in `data/libs/pairsnp-python/` but may be installed), and other stdlib modules.
 - System/bioinformatics tools (expected under `Programs/` by default and configurable from `data/Paths/programs_path`): bwa, samtools, picard (MarkDuplicates jar), fastp, seqtk, pigz, kraken (and kraken-report/translate), bedtools (genomeCoverageBed), gatk (Mutect2), varscan (jar), minos (Singularity image), snpEff (jar), snp-sites, qualimap, pigz, snp-sites, others. See `Programs/` in the repository for bundled binaries and `data/Configs/software_versions.txt` for recorded versions.
 
+<a id="layout-and-configuration-files-imported-by-the-pipeline"></a>
 Layout and configuration files imported by the pipeline
 -----------------------------------------------------
 - `data/Paths/programs_path` — read by `PipeModules.Repository.Programs()`; contains program name mapping (format: name=/<path-to-program>) used by `Programs()` to build the `programs` dictionary consumed by modules.
@@ -45,6 +49,7 @@ Layout and configuration files imported by the pipeline
 - `data/Configs/software_versions.txt` — used by `PipeModules.Version.version()` and written into `<prefix>.history` files by `PipeModules.History.UpdateHistory()`; contains pinned program version info for reproducibility.
 - `data/annotation_H37Rv.csv`, `data/H37Rv.annotation_new.tsv`, `data/catalogWHO2023_pipeline.csv`, `data/resistance_positions.csv`, `data/snp_phylo_fixed.tsv` — used by resistance, consensus, typing and annotation modules. Exact usage is documented in the module sections below.
 
+<a id="how-the-driver-works-thepipeline3"></a>
 How the driver works (`ThePipeline3`)
 -----------------------------------
 The main script `ThePipeline3` exposes subcommands (subparsers). Each subcommand corresponds to a module in `PipeModules/`. The driver:
@@ -70,6 +75,8 @@ Top-level subcommands (and where they dispatch):
 - multiqc -> PipeModules.Multiqc.Multiqc(args)
 - getclusters -> PipeModules.Clusters.GetClusters(args)
 
+<a id="per-module-reference"></a>
+<a id="fastclean"></a>
 FASTCLEAN (PipeModules/FastClean.py)
 ------------------------------------
 **Purpose**
@@ -110,6 +117,7 @@ python3 ThePipeline3 fastclean -f sample_A_R1.fastq.gz sample_A_R2.fastq.gz -p s
 ```
 Outputs: `sample_A.P1.clean.fastq.gz`, `sample_A.P2.clean.fastq.gz`, `sample_A.fastp.json`, `sample_A.cleanlog`.
 
+<a id="kraken"></a>
 KRAKEN (PipeModules/Kraken.py)
 --------------------------------
 **Purpose**
@@ -161,6 +169,7 @@ ThePipeline3 kraken -f sample_A.P1.clean.fastq.gz sample_A.P2.clean.fastq.gz --p
 ```
 Outputs: `sample_A.P1.filtered.fastq.gz`, `sample_A.P2.filtered.fastq.gz`, `sample_A.genus.contaminants`, `sample_A.species.contaminants`, `sample_A.nfilter`.
 
+<a id="mapping"></a>
 MAPPING (PipeModules/Mapping.py)
 ---------------------------------
 **Purpose**
@@ -210,6 +219,7 @@ ThePipeline3 mapping -f sample_A.P1.filtered.fastq.gz sample_A.P2.filtered.fastq
 ```
 Outputs: `sample_A.sort.bam` (or `sample_A.sort.cram` if `-c`), `sample_A.dup.metrix`, QualiMap outputs.
 
+<a id="coverage"></a>
 COVERAGE (PipeModules/Coverage.py)
 ----------------------------------
 **Purpose**
@@ -248,6 +258,7 @@ ThePipeline3 coverage -p sample_A -e cram
 ```
 Outputs: `sample_A.coverage` (unless `--keep-coverage` omitted), `sample_A.meancov`. If sample fails thresholds and `--filter` provided, files moved to `NoPassCov/`.
 
+<a id="calling"></a>
 CALLING (PipeModules/Calling.py)
 --------------------------------
 **Purpose**
