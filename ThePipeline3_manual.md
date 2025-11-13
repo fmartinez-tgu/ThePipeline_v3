@@ -71,11 +71,6 @@ Top-level subcommands (and where they dispatch):
 - multiqc -> PipeModules.Multiqc.Multiqc(args)
 - getclusters -> PipeModules.Clusters.GetClusters(args)
 
-Per-module reference (parameters, inputs, intermediate files, outputs)
-------------------------------------------------------------------
-
-Note on style: For every module I list: purpose, CLI parameters, required inputs, intermediate files created, files removed by the module, final outputs, and short comments about expected formats.
-
 FASTCLEAN (PipeModules/FastClean.py)
 ------------------------------------
 **Purpose**
@@ -306,7 +301,7 @@ High-level pipeline and generated intermediate files (ordered)
    - `annoF_varscan_mutect()` uses `PipeModules.AnnotationFilter.LoadAnnotation()` loading `data/H37Rv.annotation_new.tsv` to mark positions to discard and writes `{prefix}.parsed.vcf_annoF`, `{prefix}.snp_annoF` and `{prefix}.snp.vcf_annoF` which are then renamed to replace the originals `{prefix}.parsed.vcf`, `{prefix].snp` and `{prefix}.snp.vcf`. It also renames originals to `.original_no_annoF`.
    - `filter_multiallelic_from_mutect2_snp()` reads `{prefix}.snp.vcf` and splits multiallelic records, saving multiallelic positions to `{prefix}.multiallelic.snp.vcf` and writing a remade VCF `{prefix}.remade.snp.vcf`, which contains multiallelic variants (when SNPs) but deployed in different rows so Minos can process the file.
 
-4. **WT calling** and Minos adjudication**
+4. **WT calling and Minos adjudication**
    - `callWT()` reads `{prefix}.gvcf` and writes `{prefix}.wt` (WT positions and depths), only saving positions with depth >= 3 and freq >= 90%
 
 5. **Minos adjudication**
@@ -356,6 +351,10 @@ CLI parameters
 Inputs
 - `{prefix}.EPI.snp.final`, `{prefix}.EPI.snp.vcf` (produced by Calling pipeline)
 - `data/H37Rv.annotation_new.tsv` (used via `LoadAnnotation()`)
+
+```bash
+ThePipeline3 annotation_filter -s <input_file>
+```
 
 Outputs
 - `{prefix}.EPI.snp.final.annoF` and `{prefix}.EPI.snp.vcf.annoF` — filtered versions; used downstream by consensus and distances modules.
@@ -415,12 +414,19 @@ Inputs
 - `{prefix}.DR.snp.final`, `{prefix}.lowcov`, `{prefix}.wt`, `{prefix}.remade.indel.vcf` — produced by Calling pipeline.
 - `data/catalogWHO2023_pipeline.csv` — WHO mutations catalog (csv) used to map variants to drugs and confidence levels.
 
+Example
+```bash
+ThePipeline3 resistance -p sample
+ThePipeline3 resistance -r 
+```
+
 Outputs
 - `{prefix}.res` — per-sample CSV-like file with Gene,Locus,Pos,CodonREF,CodonALT,Change,Freq,Drug,Confidence
 - `resistance_report.csv` — aggregated report for all samples in folder when `CreateReport()` is called
 
 Notes
 - `CorrectRes()`, included in the script by default, performs corrections for triallelic/double/triple codon handling and rewrites a corrected `.res` file.
+
 
 TYPING (PipeModules/Typing.py)
 ------------------------------
@@ -431,8 +437,14 @@ Inputs
 - `{prefix}.DR.snp.final` files found in working folder.
 - `data/snp_phylo_fixed.tsv` — marker definitions.
 
+Example
+```bash
+ThePipeline3 typing
+```
+
 Outputs
 - `lineage_typing.csv` — lines of `Sample,Infection,Typing`.
+
 
 DISTANCES (PipeModules/Distances.py)
 -----------------------------------
@@ -447,6 +459,11 @@ CLI parameters (driver `distances` parser):
 | `-f`, `--fasta` | Input FASTA file with sequences (e.g., `*.mf_gap.snp-sites.fasta`). | (required) | Required parameter. |
 | `-t`, `--threads` | Number of threads for pairsnp. | `1` | Integer. |
 | `-l`, `--limit` | Filter output to distances <= limit. | `-1` | If `-1` no filtering is applied. |
+
+Example
+```bash
+ThePipeline3 distances -t 20 -f <multifasta> -p run1
+```
 
 Outputs
 - `{outfile}.genetic_distances.tsv` — three-column table: Sequence_1, Distance, Sequence_2. If `--limit` set, an additional filtered file is written.
@@ -463,8 +480,13 @@ CLI parameters (driver `getclusters` parser):
 | `-d`, `--distances` | Input distances file (three-column from `distances`). | (required) | Required. |
 | `-p`, `--prefix` | Output prefix for cluster files. | (required) | Required. |
 | `-sep` | Separator for distances input (`Tab` or `Space`). | `Tab` | Controls parsing of the distances file. |
-| `-osi` | Output clusters in alternate one-sample-per-line format. | (flag) | Produces OSI style output. |
+| `-osi` | Output clusters in alternate one-sample-per-line format. | (flag) | Produces OSI style output. What OSI means is an inside joke, don't worry about it, we just want to keep it that way |
 | `-t`, `--threshold` | Compute clusters at a single threshold instead of the default set. | (none) | If omitted, computes default thresholds 0/5/10/12/15. |
+
+Example
+```bash
+ThePipeline3 getclusters -d <distance_file> -thres 5 -p distance_file
+```
 
 Outputs
 - `{outfile}.clusters_{threshold}.tsv` — cluster files filtered to clusters of size >=2.
@@ -481,6 +503,11 @@ CLI parameters (driver `multiqc` parser):
 | `-o`, `--output` | Output name for the MultiQC report. | `multiqc_report` | File/directory base name for the report. |
 | `-f`, `--folder` | Folder to search for logs and reports to include. | `.` | Path to search recursively. |
 
+Example
+```bash
+ThePipeline2 multiqc -o <output_name>
+```
+
 Outputs
 - `multiqc` output directory and `multiqc_report.html` (or filename defined by `--output`).
 
@@ -492,6 +519,10 @@ ORGANIZE (PipeModules/Organize.py)
 Behaviour
 - If a folder already exists, the script asks for confirmation interactively.
 - Moves files according to filename patterns (see function body). It uses shell `mv` calls; if filenames conflict, files may be overwritten.
+
+```bash
+ThePipeline3 organize
+```
 
 Repository, History and Version helpers
 -------------------------------------
