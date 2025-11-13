@@ -51,7 +51,7 @@ and fastq filenames as needed.
 1) FastClean — clean reads with `fastp`
 
 ```bash
-./ThePipeline3 fastclean -f sample_A_R1.fastq.gz sample_A_R2.fastq.gz -p sample_A -t 4
+ThePipeline3 fastclean -f sample_A_R1.fastq.gz sample_A_R2.fastq.gz -p sample_A -t 4 -v
 ```
 
 Outputs: `sample_A.P1.clean.fastq.gz`, `sample_A.P2.clean.fastq.gz`,
@@ -61,7 +61,7 @@ Outputs: `sample_A.P1.clean.fastq.gz`, `sample_A.P2.clean.fastq.gz`,
 
 ```bash
 # classify, create report and filter reads matching default string (Mycobacterium tuberculosis)
-./ThePipeline3 kraken -f sample_A.P1.clean.fastq.gz sample_A.P2.clean.fastq.gz --paired -p sample_A --classify --filter --report
+ThePipeline3 kraken -f sample_A.P1.clean.fastq.gz sample_A.P2.clean.fastq.gz --paired --compressed -p sample_A --classify --filter --report -t 5
 ```
 
 Outputs: `sample_A.kraken`, `sample_A.labels`, `sample_A.filtered.readlist`,
@@ -71,15 +71,15 @@ Outputs: `sample_A.kraken`, `sample_A.labels`, `sample_A.filtered.readlist`,
 3) Mapping — produce sorted BAM (required prior to Coverage and Calling)
 
 ```bash
-./ThePipeline3 mapping -f sample_A.P1.filtered.fastq.gz sample_A.P2.filtered.fastq.gz -p sample_A -t 8
+ThePipeline3 mapping -f sample_A.P1.filtered.fastq.gz sample_A.P2.filtered.fastq.gz -p sample_A -t 8
 ```
 
-Output: `sample_A.sort.bam` (and index `sample_A.sort.bam.bai`)
+Output: `sample_A.sort.bam` (and index `sample_A.sort.bam.bai`) or `sample_A.cram` if `-c` included in the command
 
-4) Coverage — per-base coverage using bedtools
+4) Coverage — per-base coverage using bedtools and filtering
 
 ```bash
-./ThePipeline3 coverage -e bam -p sample_A --min-depth-mean 0 --min-depth-median 20 --min-coverage 0.95 --depth4cov 10
+ThePipeline3 coverage -e bam -p sample_A -f
 ```
 
 Outputs: `sample_A.coverage` (per-base), `sample_A.meancov`
@@ -87,12 +87,11 @@ Outputs: `sample_A.coverage` (per-base), `sample_A.meancov`
 5) Calling — full variant calling pipeline (VarScan + Mutect2 + Minos etc.)
 
 ```bash
-./ThePipeline3 calling -p sample_A -e .sort.bam -t 4 --min_d 3 --min_q 15 --min_f 0.05 --filt_d 20 --filt_f 0.9
+ThePipeline3 calling -p sample_A -e .sort.bam -t 4 
 ```
 
 Key outputs: `sample_A.snp.varscan`, `sample_A.snp.mutect.tab`,
-`sample_A.remade.snp.vcf`, `sample_A.EPI.snp.final.annoF`, `sample_A.DR.snp.final`,
-`sample_A.res`
+`sample_A.remade.snp.vcf`, `sample_A.EPI.snp.final.annoF`, `sample_A.DR.snp.final`
 
 Notes and tips
 --------------

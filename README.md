@@ -65,7 +65,3 @@ Open an issue or submit a PR for bugfixes and improvements. When adding new prog
 **License**
 
 See `LICENSE` in the repository root.
-
-Acknowledgements
-
-This README and `ThePipeline3_manual.md` were generated programmatically by inspecting `ThePipeline3` and the `PipeModules/` folder for parameter names, defaults and I/O behaviour. Keep both documents in sync with code changes.

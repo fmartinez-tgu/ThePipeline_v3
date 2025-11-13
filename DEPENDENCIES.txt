@@ -129,9 +129,8 @@ Core tools (required for the full pipeline):
     conda install -c bioconda varscan
     or download: http://varscan.sourceforge.net/
 
-- GATK (gatk)
+- GATK (gatk). Removed to avoid large files in the repository. gatk-4.2.5.0 must be downloaded
   - Purpose: Mutect2, SelectVariants, etc.
-  - The repository already includes `Programs/gatk-4.2.5.0`.
   - GATK requires Java 8+ and often a conda environment. If you need to install:
     See https://gatk.broadinstitute.org/
 
@@ -160,7 +159,7 @@ Core tools (required for the full pipeline):
 
 3) Where the repo already includes programs
 -----------------------------------------
-- Programs/gatk-4.2.5.0/  — local GATK distribution (4.2.5.0)
+- GATK: not included due to large size. Must be downloaded
 - Programs/fastp/fastp  — fastp binary included
 - Programs/bwa/  — bwa sources and binary included
 - Programs/bedtools2/  — bedtools sources included
