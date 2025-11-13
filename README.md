@@ -57,10 +57,6 @@ ThePipeline3 calling -p sample -t 4 -e <file format>
 - Python scripts target Python 3.7. Adjust the interpreter if necessary.
 - The repo includes a vendored `pairsnp` implementation in `data/libs/pairsnp-python/` to avoid external package resolution issues.
 
-**Contributing**
-
-Open an issue or submit a PR for bugfixes and improvements. When adding new program versions, update `data/Configs/software_versions.txt` so history files reflect the new versions.
-
 **Contact**
 
 This pipeline was mostly developed by Mariana Gabriela López, Miguel Moreno Molina and Francisco José Martínez Martínez, members of the Tuberculosis Genomics Unit at the Biomedicine Institute of Valencia (IBV-CSIC). If you need to contact the team, please write to `tuberculosisgenomicsunit@gmail.com`
