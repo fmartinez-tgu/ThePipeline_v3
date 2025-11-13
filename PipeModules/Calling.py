@@ -141,7 +141,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
 
     # index BAM
     cmd_indexBam = [samtools, "index", "-@", threads,
-                    "{}{}".format(prefix, ext)]
+                    "{}.sort.bam".format(prefix)]
     stat = sp.call(cmd_indexBam)
     UpdateHistory(cmd_indexBam, "samtools", prefix)
     if stat != 0:
@@ -151,7 +151,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     # CALLING WITH MUTECT2
     # Run Mutect2
     cmd_Mutect = [gatk, "Mutect2",
-                   "-R", reference, "-I", "{}{}".format(prefix, ext),
+                   "-R", reference, "-I", "{}.sort.bam".format(prefix),
                    "-O", "{}_unfiltered.vcf".format(prefix), "-OVI", "false",
                    "--verbosity", "ERROR",
                    "--QUIET", "true", "-mbq", min_qual,
@@ -187,7 +187,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     #now produce the gVCF for accurate WT calling
     print("\033[92m\nObtaining {}.gvcf\n\033[00m".format(prefix))
     cmd_Mutect2 = [gatk, "Mutect2",
-                   "-R", reference, "-I", "{}{}".format(prefix, ext),
+                   "-R", reference, "-I", "{}.sort.bam".format(prefix),
                    "-O", "{}.gvcf".format(prefix), "-OVI", "false",
                    "--verbosity", "ERROR",
                    "--QUIET", "true", "-mbq", min_qual,
@@ -250,7 +250,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     # CALCULATE LOWCOV FROM COVERAGE
     # Calculate coverage
     with open("{}.coverage".format(prefix), "w") as outfh:
-        cmd_cov = [genomeCoverageBed, "-ibam", "{}{}".format(prefix, ext),
+        cmd_cov = [genomeCoverageBed, "-ibam", "{}.sort.bam".format(prefix),
                    "-d", "-g", reference]
         stat = sp.call(cmd_cov, stdout=outfh)
     if stat != 0:
@@ -757,7 +757,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
         
     for position in common_varscan_mutect: 
         if position not in minos_positions:
-            to_add = [ref_ID,str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],varscan_file[varscan_file['Position'] == position]['VarAllele'].iloc[0],".",".","VarScan_Mutect2",".","."]
+            to_add = [ref_ID[0],str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],varscan_file[varscan_file['Position'] == position]['VarAllele'].iloc[0],".",".","VarScan_Mutect2",".","."]
             lines_noheader.append("\t".join(to_add))
     
     # Now we save the Minos output file including the common positions found
