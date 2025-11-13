@@ -137,19 +137,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     os.environ['LD_LIBRARY_PATH'] = os.path.join(dirname,
                                                  'data',
                                                  'libs')
-
-    if ext.endswith(".cram"):  # if input is CRAM, transform to BAM
-        cmd_toBam = [samtools, "view", "--threads", threads,
-                     "-T", reference,
-                     "-B", "-o", "{}.sort.bam".format(prefix),
-                     "{}{}".format(prefix, ext)]
-        stat = sp.call(cmd_toBam)
-        UpdateHistory(cmd_toBam, "samtools", prefix)
-        if stat != 0:
-            sys.exit("\033[91mPIPELINE ERROR at sample {}: "
-                     "Pipeline stopped at samtools "
-                     "when transforming BAM to CRAM!\n\033[0m".format(prefix))
-        ext = ".sort.bam"
+    
 
     # index BAM
     cmd_indexBam = [samtools, "index", "-@", threads,
@@ -579,24 +567,35 @@ def Minos(reference,minos, snpEff, prefix, single_end, ref_ID):
 
 def minos_raw_vcf_to_tab(prefix, ref_ID):
     """
-    Convert Minos VCF output into a compact tab-delimited summary and apply multi-caller reconciliation.
-
+    Convert Minos consensus VCF and complementary caller outputs into a tabular summary.
     Summary:
-    - For each variant reported by Minos, collects per-allele frequencies and depths from VarScan and Mutect2,
-      taking the mean when both callers report the same allele.
-    - Writes a tab file "{prefix}.minos.raw.tab" with columns:
-      Chrom, Position, Ref, Cons, VarFreq, Cov_allele, VarAllele
-      - For biallelic sites with ALT freq < 90%: map Ref+ALT to IUPAC code in Cons and keep ALT in VarAllele.
-      - For biallelic sites with ALT freq >= 90%: put the ALT in Cons and VarAllele (fixed).
-      - For multi-allelic sites:
-        - If any allele has >= 90% frequency, that allele is placed in Cons and all alleles/frequencies/depths
-          are recorded in VarAllele/VarFreq/Cov_allele fields (major allele first).
-        - If no allele is fixed, Cons is set to "?" and alleles/frequencies/depths are written in parallel order
-          so frequencies map to the listed variants.
-    - Calls filter_raw_minos(...) at the end to apply additional filters (e.g., low coverage or low frequency).
+        Reads Minos consensus VCF and the outputs from VarScan and Mutect2 (expected to follow specific filename patterns
+        derived from the provided prefix). It complements Minos consensused positions with positions that are common between
+        VarScan and Mutect2 but missing from Minos, then builds a tab-delimited summary table that contains, for each
+        position: chromosome, position, reference base, consensus call, variant frequency(s) (percent), coverage/depth(s)
+        and reported variant allele(s). The function infers frequencies and depths by collecting values from VarScan and
+        Mutect2 outputs and averaging when both callers report a value for the same variant. It applies simple heuristics
+        to decide how to represent the consensus (IUPAC code, explicit allele, or '?') based on variant frequencies and
+        multiplicity. In short:
+
+        - Reads Minos VCF and identifies positions called by VarScan and Mutect2 but missing from Minos.
+        - Merges these missing positions into the Minos VCF data.
+        - For each variant, collects per-allele frequencies and depths from VarScan and Mutect2,
+          taking the mean when both callers report the same allele.
+        - Writes a tab file "{prefix}.minos.raw.tab" with columns: Chrom, Position, Ref, Cons, VarFreq, Cov_allele, VarAllele
+        - For biallelic sites with ALT freq < 90%: map Ref+ALT to IUPAC code in Cons and keep ALT in VarAllele.
+        - For biallelic sites with ALT freq >= 90%: put the ALT in Cons and VarAllele (fixed).
+        - For multi-allelic sites:
+          - If any allele has >= 90% frequency, that allele is placed in Cons and all alleles/frequencies/depths
+            are recorded in VarAllele/VarFreq/Cov_allele fields (major allele first).
+          - If no allele is fixed, Cons is set to "?" and alleles/frequencies/depths are written in parallel order
+            so frequencies map to the listed variants.
+          - Calls filter_raw_minos(...) at the end to apply additional filters (e.g., low coverage or low frequency).
     """
 
+     
     import subprocess as sp
+    import pandas as pd
     iupac = {"M": ["A", "C"],
         "R": ["A", "G"],
         "W": ["A", "T"],
@@ -605,7 +604,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
         "K": ["G", "T"]}
     
     def find_key_with_elements(d, elements):
-        '''This function will return the key of a dictionary whose value contains all the elements in the list elements'''
+        '''Finds a key in dictionary d whose value contains all elements in the provided list.'''
         required_elements = set(elements)
         for key, value in d.items():
             if required_elements.issubset(set(value)):
@@ -614,13 +613,13 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
 
     def get_freqs_from_varscan_and_mutect(pos_minos, ref_ID):
         '''This function will obtain the frequency for each consensus position called by Minos from the VarScan and Mutect2 outputs. 
-        If the position is present in both callers, the mean frequency will be calculated.'''
+        If the position is present in both callers, the mean frequency will be calculated'''
         
         variantes = cons.split(",")
         lista_keys = [ref+i for i in variantes]
         dic_variants = {key: [] for key in lista_keys}
 
-        # Get the freqs from VarScan and Mutect2
+        # Get the frequencies from VarScan and Mutect2
         with open("{}.parsed.vcf".format(prefix), "r+") as input_varscan:
             lines_varscan = input_varscan.readlines()
             lines_varscan = [x for x in lines_varscan if "#" not in x]
@@ -628,15 +627,15 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
             for line_varscan in lines_varscan:
 
                 try:
-                    if any(f"{item}\t{pos_minos}\t" in line_varscan for item in ref_ID): # If we're in the position, we add the freq to the corresponding dictionary key
+                    if any(f"{item}\t{pos_minos}\t" in line_varscan for item in ref_ID): # If the position is present, add the frequency to the corresponding dictionary key
                         ref_varscan, cons_varscan, freq_varscan = itemgetter(3,4,9)(line_varscan.split("\t"))
-                        freq_variant_varscan = freq_varscan.split(":")[-1] # Save variant frequency
+                        freq_variant_varscan = freq_varscan.split(":")[-1] # Save the frequency of the variant
                         dic_variants[ref_varscan+cons_varscan].append(float(freq_variant_varscan)) # Save variant frequency in its key
-                except KeyError: # Some positions may have 2 possible VarScan variants. 
-                                 #However, if any of them doesn't appear in the ALT Minos column, it won't be considered
+                except KeyError: # Some positions may have 2 possible variants in VarScan. 
+                                 # However, if any of them is not present in the ALT column of Minos, it will not be considered
                     continue
 
-        # Same with Mutect2
+                    # Same for Mutect2
         with open("{}.remade.snp.vcf".format(prefix), "r+") as input_mutect2:
             lines_mutect2 = input_mutect2.readlines()
 
@@ -651,7 +650,8 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
                     
         from statistics import mean
 
-        # Save the mean of the frequencies of each variant extracted from VarScan and Mutect2 and add them to the VarFreq column ordered from highest to lowest
+        # Save the mean of the frequencies of each variant extracted from VarScan and Mutect2 and add them 
+        # to the VarFreq column ordered from highest to lowest
 
         freqs_to_write = [round(mean(values)*100,2) for keys,values in dic_variants.items()]
         if len(freqs_to_write) == 1:
@@ -669,7 +669,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
         lista_keys = [ref+i for i in variantes]
         dic_variants = {key: [] for key in lista_keys}
 
-        # Get the depths from VarScan and Mutect2
+        # Get depths from VarScan and Mutect2
         with open("{}.parsed.vcf".format(prefix), "r+") as input_varscan:
             lines_varscan = input_varscan.readlines()
     
@@ -681,7 +681,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
                         depth_variant_varscan = freq_varscan.split(":")[1] 
                         dic_variants[ref_varscan+cons_varscan].append(float(depth_variant_varscan)) 
                 except KeyError: 
-                                 
+
                     continue
 
         with open("{}.remade.snp.vcf".format(prefix), "r+") as input_mutect2:
@@ -691,12 +691,14 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
                 try:
                     if any(f"{item}\t{position}\t" in line_mutect2 for item in ref_ID):
                         ref_mutect, cons_mutect, info_mutect = itemgetter(3,4,9)(line_mutect2.split("\t"))
-                        depth_variant_mutect = str(int(info_mutect.split(":")[1].split(",")[1])+int(info_mutect.split(":")[1].split(",")[0])) 
+                        depth_variant_mutect = str(int(info_mutect.split(":")[1].split(",")[1])+int(info_mutect.split(":")[1].split(",")[0])) # Guardamos la depth de ambas variantes sumadas
                         dic_variants[ref_mutect+cons_mutect].append(float(depth_variant_mutect))
                 except KeyError:
                     continue
                     
         from statistics import mean
+
+        # Guardamos la media de las frecuencias de cada variante extraídas de VarScan y Mutect2 y se añaden a la columna de VarFreq ordenadas de mayor a menor
 
         depths_to_write = [int(mean(values)) for keys,values in dic_variants.items()]
 
@@ -705,7 +707,6 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
                     
         elif len(depths_to_write) > 1:
             return depths_to_write
-
 
 
     def check_bigger_than_90(list1, val):
@@ -720,29 +721,80 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
         for x in list1:
             if x < val:
                 return True
-
-
     
     from operator import itemgetter
 
+    ### Now we're going to complement the positions consensed by Minos with the common variants between VarScan_Mutect2.
+
+    # Import the original file obtained from Minos with the consensual variants
     with open("{}.final_sin_wt.vcf".format(prefix), "r+") as filtered_raw:
         lines = filtered_raw.readlines()
+        lines_headers = [i.strip() for i in lines if "#" in i]
+        header = lines_headers[-1]
+        lines_preheader = lines_headers[:-1]
+        lines_noheader = [i.strip() for i in lines if "#" not in i]
+
+    # We first import the varscan, mutect and minos positions to include the missing ones
+
+    varscan_file = pd.read_csv("{}.snp".format(prefix), sep = "\t", header=0)
+    mutect_file = VCFtoPandas("{}.snp.vcf".format(prefix))
+    minos_file = VCFtoPandas("{}.final_sin_wt.vcf".format(prefix))
+    varscan_dict = varscan_file.set_index('Position')['Cons'].to_dict()
+    mutect_dict = mutect_file.set_index('POS')['ALT'].to_dict()
+    minos_dict = minos_file.set_index('POS')['ALT'].to_dict()
+
+    # Now, we must obtain all the unique list of positions combining varscan, minos and mutect
+
+    # Get the keys from each dictionary as sets
+    varscan_positions = set(varscan_dict.keys())
+    mutect_positions = set(mutect_dict.keys())
+    minos_positions = set(minos_dict.keys())
+
+    # Common positions
+    common_varscan_mutect = varscan_positions & mutect_positions
+
+    # We add the common positions to the final file lines. We only need the MTB_anc, position, ref and alt columns. The rest will be empty
+        
+    for position in common_varscan_mutect: 
+        if position not in minos_positions:
+            to_add = [ref_ID,str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],varscan_file[varscan_file['Position'] == position]['VarAllele'].iloc[0],".",".","VarScan_Mutect2",".","."]
+            lines_noheader.append("\t".join(to_add))
+    
+    # Now we save the Minos output file including the common positions found
+
+    with open("{}.final_sin_wt.vcf_complemented".format(prefix), "w+") as output_file:
+        split_data = [line.split('\t') for line in lines_noheader]
+        columns = header.lstrip('#').split('\t')
+        df = pd.DataFrame(split_data, columns=columns)
+
+        # Now we sort the rows by the position
+        df['POS'] = pd.to_numeric(df['POS'])
+        df_sorted = df.sort_values(by='POS').reset_index(drop=True)
+
+        # Convert sorted DF to list of strings
+        sorted_data_lines = df_sorted.astype(str).apply('\t'.join, axis=1).tolist()
+        df_final = lines_preheader + sorted_data_lines
+
+        output_file.write("\n".join(df_final))
+
+        # Now, we reassign the variable lines_noheader for the next chunk, since up to this point the elements are not sorted 
+        with open("{}.final_sin_wt.vcf_complemented".format(prefix), "r+") as filtered_raw_complemented:
+            lines_complemented = filtered_raw_complemented.readlines()
+            lines_noheader = [x.strip() for x in lines_complemented if "#" not in x]
+
 
     with open("{}.minos.raw.tab".format(prefix), "w+") as raw_tab:
-        raw_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_allele\tVarAllele\n") 
+        raw_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_allele\tVarAllele\n") # Header
 
-        # Remove headers
-        lines_noheader = [i for i in lines if "#" not in i]
-
-        for line in lines_noheader: 
+        for line in lines_noheader: # For each position in the Minos output (now complemented with common positions)
             tokens = line.split("\t")
             chrom, position, ref, cons = itemgetter(0,1,3,4)(tokens)
 
             if "./.:.:0,0:.:0:0,0:0.0:0.0" in line:
                 chrom = f"{'-'.join(ref_ID[0:-1])}*"
 
-            varfreq = get_freqs_from_varscan_and_mutect(position, ref_ID) # Mean frequency of the variant(s)
-            cov_total = get_depths_from_varscan_and_mutect(position, ref_ID) # Mean depth of the variant(s)
+            varfreq = get_freqs_from_varscan_and_mutect(position, ref_ID) # Get mean frequency from VarScan and Mutect2
+            cov_total = get_depths_from_varscan_and_mutect(position, ref_ID) # Get mean depth from VarScan and Mutect2
 
             if len(cons.split(",")) == 1 and varfreq < 90: # If it's biallelic and the ALT freq is < 90%, we map to IUPAC code
                 code_iupac = find_key_with_elements(iupac, [ref, cons])
@@ -751,12 +803,12 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
             elif len(cons.split(",")) == 1 and varfreq >= 90: # If it's biallelic and the ALT freq is >= 90%, we fix the ALT
                 raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,cons,varfreq,cov_total,cons))
 
-            elif len(cons.split(",")) > 1 and check_bigger_than_90(varfreq,90): # If it's multiallelic and any ALT freq is >= 90%, we fix that ALT
+            elif len(cons.split(",")) > 1 and check_bigger_than_90(varfreq,90): # If it's multiallelic and any ALT freq is >= 90%, we fix that ALT in Cons column but keep all the info in the rest of columns
                 variantes = cons.split(",")
-                # We get the index of the variant with freq > 90%
+                # Get the index of the highest freq value among the possible variants
                 max_index = varfreq.index(max(varfreq))
                 min_index = varfreq.index(min(varfreq))
-                variante_90perc = variantes[max_index] # Variant > 90 %
+                variante_90perc = variantes[max_index] # We get the variant at > 90 % freq
                 variante_minoritaria = variantes[min_index] 
                 string_varfreq = "{},{}".format(varfreq[max_index], varfreq[min_index])
                 string_VarAllele = "{},{}".format(variante_90perc, variante_minoritaria)
@@ -765,9 +817,11 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
                 # We write the line with the variant > 90% in Cons
                 raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,variante_90perc,string_varfreq,string_depth,string_VarAllele))
             
-            # If there's no variant fixed (>90%), we put ? in Cons and write all the variants/freqs/depths in parallel order
+            # If there's no variant at > 90% freq, we put ? in Cons and write all the info in parallel order
             elif len(cons.split(",")) > 1 and check_lower_than_90(varfreq,90): 
+
                 variantes = cons.split(",")
+
                 max_index = varfreq.index(max(varfreq))
                 min_index = varfreq.index(min(varfreq))
                 variante_mayoritaria = variantes[max_index] 
@@ -781,11 +835,12 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
     filter_raw_minos("{}.minos.raw.tab".format(prefix),prefix)
     return 0
 
+
 def filter_raw_minos(file_name,prefix):
     '''Filters the Minos raw tab output to keep only those positions with depth >= 3 and frequency >= 5%'''
     from operator import itemgetter
     #from .History import UpdateHistory
-    # Abrimos el archivo a filtrar
+    # Open the Minos raw tab file
     with open(file_name, "r+") as input_file:
         lines_input = input_file.readlines()
 
@@ -1347,7 +1402,5 @@ def Calling(args):
         else:
             os.remove("{}.sort.bam".format(args.prefix))
             os.remove("{}.sort.bam.bai".format(args.prefix))
-
-    shutil.rmtree("{}_minos".format(args.prefix))
     
     return 0

@@ -1,9 +1,7 @@
 ThePipeline3 — Reference Manual
 ================================
 
-This manual documents ThePipeline3 (Python-based), its submodules in `PipeModules/`, the command-line parameters exposed by `ThePipeline3` driver, the required inputs, intermediate files produced during execution, files removed by the pipeline, and the final outputs. It follows the style and structure of `Manual.md` but expands every module with parameter-by-parameter descriptions, examples and exact file flow so team members can run, debug and extend the pipeline with confidence.
-
-Note: This document is generated from code in `ThePipeline3` and each `PipeModules/*.py` file. If you update the code, update this manual.
+This manual documents ThePipeline3 (Python-based), its submodules in `PipeModules/`, the command-line parameters exposed by `ThePipeline3` driver, the required inputs, intermediate files produced during execution and which are removed, and the final outputs.
 
 Contents
 --------
@@ -80,7 +78,7 @@ Note on style: For every module I list: purpose, CLI parameters, required inputs
 
 FASTCLEAN (PipeModules/FastClean.py)
 ------------------------------------
-Purpose
+**Purpose**
 - Clean raw FASTQ reads using fastp, produce compressed cleaned FASTQ, a JSON and a cleanlog.
 
 CLI parameters (as in `ThePipeline3` parser):
@@ -89,7 +87,7 @@ CLI parameters (as in `ThePipeline3` parser):
 |---|---|---:|---|
 | `-f`, `--fastq` | One or two input FASTQ file paths. One file = single-end, two files = paired-end. | (required) | `nargs="*"` in parser; required for fastclean. |
 | `-c`, `--config` | Path to a fastp config file (one parameter per line). | `default_config` | If `default_config`, reads `data/Configs/fastp_default.config`. |
-| `-t`, `--threads` | Number of threads passed to fastp. | `1` | Code caps threads at 16. |
+| `-t`, `--threads` | Number of threads passed to fastp. | `1` | Up to 16 threads. |
 | `-v`, `--verbose` | Print the fastp command before running. | (flag) | No value; present/absent. |
 | `--phred64` | Treat input as Phred+64 (convert to Phred+33). | (flag) | Adds `--phred64` to fastp when set. |
 | `-p`, `--prefix` | Output filename prefix used for produced files. | (required) | Required parameter used to name outputs. |
@@ -120,7 +118,7 @@ Outputs: `sample_A.P1.clean.fastq.gz`, `sample_A.P2.clean.fastq.gz`, `sample_A.f
 
 KRAKEN (PipeModules/Kraken.py)
 --------------------------------
-Purpose
+**Purpose**
 - Classify reads with Kraken, translate taxonomy labels, extract reads that match a provided taxonomic string (by default `Mycobacterium tuberculosis`), and produce contamination reports.
 
 CLI parameters (as in `ThePipeline3` parser):
@@ -165,13 +163,13 @@ Notes and pitfalls
 
 Example
 ```bash
-python3 ThePipeline3 kraken -f sample_A.P1.clean.fastq.gz sample_A.P2.clean.fastq.gz --paired -p sample_A --classify --filter --report
+ThePipeline3 kraken -f sample_A.P1.clean.fastq.gz sample_A.P2.clean.fastq.gz --paired --compressed -p sample_A --classify --filter --report -t 5
 ```
 Outputs: `sample_A.P1.filtered.fastq.gz`, `sample_A.P2.filtered.fastq.gz`, `sample_A.genus.contaminants`, `sample_A.species.contaminants`, `sample_A.nfilter`.
 
 MAPPING (PipeModules/Mapping.py)
 ---------------------------------
-Purpose
+**Purpose**
 - Map reads to a reference with `bwa mem`, filter by mapQ, sort and (optionally) remove duplicates with Picard, hardclip reads with `samclip_h`, run QualiMap for QC and optionally convert to CRAM.
 
 CLI parameters (as in `ThePipeline3`):
@@ -187,7 +185,7 @@ CLI parameters (as in `ThePipeline3`):
 | `--no-dedup` | Skip duplicate removal (Picard MarkDuplicates). | (flag) | Avoids running dedup step. |
 | `-mapq`, `--mapq` | MAPQ cutoff; filter alignments with MAPQ >= cutoff. | `0` | If >0, an `awk` filter is applied. |
 | `-nhc`, `--no_hard_clipping` | Skip the hard-clipping step executed by `samclip_h`. | (flag) | Useful if hard clipping is not desired. |
-| `-c`, `--cram` | Produce CRAM output (`{prefix}.sort.cram`) and remove BAM. | (flag) | Requires samtools with CRAM support and reference available. |
+| `-c`, `--cram` | Produce CRAM output (`{prefix}.sort.cram`) and remove BAM. | (flag) | Recommended to save space. Requires samtools with CRAM support and reference available. |
 
 Required inputs
 - FASTQ(s) and reference. If `--index` used, reference will be indexed by `bwa`.
@@ -214,13 +212,13 @@ Notes
 
 Example
 ```bash
-python3 ThePipeline3 mapping -f sample_A.P1.filtered.fastq.gz sample_A.P2.filtered.fastq.gz -p sample_A -t 8 -c
+ThePipeline3 mapping -f sample_A.P1.filtered.fastq.gz sample_A.P2.filtered.fastq.gz -p sample_A -t 8 -c
 ```
 Outputs: `sample_A.sort.bam` (or `sample_A.sort.cram` if `-c`), `sample_A.dup.metrix`, QualiMap outputs.
 
 COVERAGE (PipeModules/Coverage.py)
 ----------------------------------
-Purpose
+**Purpose**
 - Calculate per-base coverage with bedtools `genomeCoverageBed` and create summary files. Optionally filter samples that do not meet coverage thresholds and move their files to `NoPassCov/`.
 
 CLI parameters (as in `ThePipeline3`):
@@ -252,33 +250,33 @@ Final outputs
 
 Example
 ```bash
-python3 ThePipeline3 coverage -p sample_A -e bam --min-depth-mean 10 --min-depth-median 30 --min-coverage 0.95
+ThePipeline3 coverage -p sample_A -e cram
 ```
 Outputs: `sample_A.coverage` (unless `--keep-coverage` omitted), `sample_A.meancov`. If sample fails thresholds and `--filter` provided, files moved to `NoPassCov/`.
 
 CALLING (PipeModules/Calling.py)
 --------------------------------
-Purpose
-- Variant discovery and adjudication: VarScan2 (pileup2snp/indel), GATK Mutect2-based calling, multiallelic handling, Minos adjudication (via Singularity), SnpEff annotation (when reference corresponds to MTB ancestor/H37Rv), filtering, EPI and density filtering, DR extraction and resistance-ready outputs.
+**Purpose**
+- Variant discovery and adjudication: VarScan2 (pileup2snp/indel), GATK Mutect2-based calling, filtering of variants called in non-reliable genomic regions (PE/PPEs, highly repetitive regions), multiallelic handling, Minos adjudication (via Singularity) and SnpEff annotation (when reference corresponds to MTB ancestor/H37Rv). Variants with a frequence between 10%-90% are saved in a DR file (later used for resistance prediction) and fixed variants (freq>90%) are saved in a EPI file, which is further filtered by density.
 
 CLI parameters (as parsed in `ThePipeline3`):
 
 | Parameter | Description | Default | Notes |
 |---|---|---:|---|
-| `-e`, `--extension` | Extension used to find mapping files (`.sort.bam` or `.sort.cram`). | `.sort.bam` | Validated by `check_extension()`. |
-| `-r`, `--reference` | Reference FASTA path. | data reference (from data_path) | If omitted, pipeline uses default data reference. |
+| `-e`, `--extension` | Extension used to find mapping files (e.g. `.cram` or `.sort.bam`). | `.sort.bam` | Validated by `check_extension()`. `.cram` files are coverted to `.sort.bam` files by default|
+| `-r`, `--reference` | Reference FASTA path. | data reference (from data_path) | If omitted, pipeline uses default data reference, i.e. the MTB_ancestor reference, which originally comes from H37Rv but corrects false reference nucleotides in H37Rv. |
 | `-p`, `--prefix` | Sample prefix. | (required) | Used to find mapping files and name outputs. |
 | `-t`, `--threads` | Threads for GATK/samtools. | `1` | Integer. |
 | `-kgvcf`, `--keep_gvcf` | Keep the generated `.gvcf` file. | (flag) | Otherwise the gVCF is removed by default. |
 | `-kbam`, `--keep_bam` | Keep BAM files instead of converting to CRAM and removing them. | (flag) | Useful for debugging or workflow compatibility. |
-| `-kmvcf`, `--keep_mutect2_vcf` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are converted/removed. |
+| `-kmvcf`, `--keep_mutect2_vcf` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are removed after their conversion to tabular format. |
 | `-se`, `--single_end` | Indicate reads are single-end for Minos adjudication. | (flag) | Alters `Minos()` `--reads` invocation. |
 | `-min_d`, `--min_depth` | Minimum depth considered callable. | `3` | Passed to Mutect2 `--callable-depth` and used in filters. |
 | `-min_q`, `--min_qual` | Minimum base quality for callable positions. | `15` | Passed as Mutect2 `-mbq`. |
 | `-min_f`, `--min_freq` | Minimum allele frequency to consider an alternative. | `0.05` | Validated via `percentage_float`. |
 | `-filt_d`, `--filter_depth` | Depth threshold for EPI SNP filtering. | `20` | Numeric. |
 | `-filt_f`, `--filter_freq` | Frequency threshold to include a SNP in EPI files. | `0.9` | Float between 0 and 1. |
-| `--skip_dens_filt` | Skip density filtering stage. | (flag) | When set densityfilter is not applied. |
+| `--skip_dens_filt` | Skip density filtering stage. | (flag) | When set, densityfilter is not applied. |
 | `-w`, `--window` | Sliding window size (bp) for density filtering. | `10` | Integer bp window. |
 | `-dens`, `--density` | Density cutoff: number of SNPs within `window` that triggers removal. | `3` | Integer SNP count. |
 
@@ -288,15 +286,15 @@ Required inputs
 - Programs required (from `Programs()`): varscan (VarScan jar), gatk (gatk executable), minos (Singularity image) and snpEff (jar), samtools, genomeCoverageBed (bedtools), snp-sites etc.
 
 High-level pipeline and generated intermediate files (ordered)
-1. VarScan path
-   - Creates `{prefix}_mapq60.sort.bam` (filtering MAPQ >= 60) using `mapq60_filter()`.
+1. **VarScan**
+   - If `.cram` is input, converts to BAM first and sets `ext` to `.sort.bam`.
+   - Creates `{prefix}_mapq60.sort.bam` (filtering MAPQ >= 60) using `mapq60_filter()`. This mapq60-filtered BAM will be the VarScan input. **In Mutect2, we keep the original because it already has its own internal filters.**
    - Runs `samtools mpileup` on the filtered BAM and writes `{prefix}.mpileup.remove`.
    - Runs VarScan `pileup2snp` producing `{prefix}.snp` (VarScan tab output).
-   - Converts VarScan output to `{prefix}.parsed.vcf` (a small VCF-like file, created by the conversion code).
+   - Converts VarScan output to `{prefix}.parsed.vcf` (a small VCF-like file, created by the conversion code) so it can work as an input for Minos.
    - Removes `{prefix}.mpileup.remove` after VarScan.
 
-2. Mutect2 path
-   - If `.cram` is input, converts to BAM first and sets `ext` to `.sort.bam`.
+2. **Mutect2**
    - Indexes BAM: `samtools index` creating `{prefix}.sort.bam.bai`.
    - Runs `gatk Mutect2` producing `{prefix}_unfiltered.vcf` (then filters orientation artifacts and produces `{prefix}.vcf`)
    - Produces gVCF `{prefix}.gvcf` using Mutect2 with `-ERC BP_RESOLUTION`.
@@ -304,40 +302,41 @@ High-level pipeline and generated intermediate files (ordered)
    - Extracts single-allele indels: `{prefix}.indel_sin_multiallelic.vcf` then filters to `{prefix}.remade.indel.vcf` (keeps indels with AF>=0.05 and DP>=10).
    - Calculates coverage with bedtools writing `{prefix}.coverage` and derives `{prefix}.lowcov.tsv` (positions with coverage < min_depth) and `{prefix}.lowcov` (converted later by `get_DR`).
 
-3. Annotation filtering & multiallelic handling
-   - `annoF_varscan_mutect()` uses `PipeModules.AnnotationFilter.LoadAnnotation()` loading `data/H37Rv.annotation_new.tsv` to mark positions to discard and writes `{prefix}.parsed.vcf_annoF`, `{prefix}.snp_annoF` which are then renamed to replace the originals. It also renames originals to `.original_no_annoF`.
-   - `filter_multiallelic_from_mutect2_snp()` reads `{prefix}.snp.vcf` and splits multiallelic records, saving multiallelic positions to `{prefix}.multiallelic.snp.vcf` and writing a remade VCF `{prefix}.remade.snp.vcf`.
+3. **Annotation filtering & multiallelic handling**
+   - `annoF_varscan_mutect()` uses `PipeModules.AnnotationFilter.LoadAnnotation()` loading `data/H37Rv.annotation_new.tsv` to mark positions to discard and writes `{prefix}.parsed.vcf_annoF`, `{prefix}.snp_annoF` and `{prefix}.snp.vcf_annoF` which are then renamed to replace the originals `{prefix}.parsed.vcf`, `{prefix].snp` and `{prefix}.snp.vcf`. It also renames originals to `.original_no_annoF`.
+   - `filter_multiallelic_from_mutect2_snp()` reads `{prefix}.snp.vcf` and splits multiallelic records, saving multiallelic positions to `{prefix}.multiallelic.snp.vcf` and writing a remade VCF `{prefix}.remade.snp.vcf`, which contains multiallelic variants (when SNPs) but deployed in different rows so Minos can process the file.
 
-4. WT calling and Minos adjudication
-   - `callWT()` reads `{prefix}.gvcf` and writes `{prefix}.wt` (WT positions and depths).
+4. **WT calling** and Minos adjudication**
+   - `callWT()` reads `{prefix}.gvcf` and writes `{prefix}.wt` (WT positions and depths), only saving positions with depth >= 3 and freq >= 90%
+
+5. **Minos adjudication**
    - `Minos()` runs singularity-minos adjudication, producing a `{prefix}_minos` folder with Minos outputs including `final.vcf`; the code then extracts non-WT lines to `{prefix}.final_sin_wt.vcf` and removes the `{prefix}_minos` directory.
    - Annotates the Minos final VCF with SnpEff (produces `{prefix}.final_sin_wt.annotSnpEff.vcf`) if the reference is MTB_anc or H37Rv.
 
 5. Tabulation and multi-caller reconciliation
-   - `minos_raw_vcf_to_tab()` transforms Minos VCF to `{prefix}.minos.raw.tab`, computes mean frequencies and depths from VarScan and Mutect2, and writes `{prefix}.filtered.minos.raw.tab` after `filter_raw_minos()` which keeps only rows with depth >= 3 and freq >= 5%.
+   - `minos_raw_vcf_to_tab()` transforms Minos VCF to `{prefix}.minos.raw.tab`, complements Minos output with variants called by both VarScan and Mutect2 but not kept by Minos, computes mean frequencies and depths from VarScan and Mutect2, and writes `{prefix}.filtered.minos.raw.tab` after `filter_raw_minos()` which keeps only rows with depth >= 3 and freq >= 5%.
 
 6. EPI, density filters and DR extraction
    - `filter_EPI()` produces `{prefix}.EPI.snp.nodensityfilter` and then (after densityfilter) produces `{prefix}.EPI.snp.final.annoF`.
    - `densityfilter()` writes `{prefix}.dens_removed_snps.tab` with the positions removed by density, and final `.EPI.snp.final.annoF` with the kept positions.
-   - `get_DR()` reads `{prefix}.filtered.minos.raw.tab` and annotation (annotation CSV) to produce `{prefix}.DR.snp.final` and `{prefix}.lowcov` and other outputs.
+   - `get_DR()` reads `{prefix}.filtered.minos.raw.tab` to produce `{prefix}.DR.snp.final`, including gene annotations, and `{prefix}.lowcov`.
 
 7. Cleanup and renames (the script's final steps)
    - Removes: `{prefix}.EPI.snp.nodensityfilter`, `{prefix}.final_sin_wt.vcf`, `{prefix}.lowcov.tsv`, `{prefix}.minos.raw.tab`, `{prefix}.parsed.vcf`, `{prefix}.snp.vcf`, `{prefix}.vcf`, `{prefix}.vcf.stats` (explicit removes in code). Also removes `{prefix}.snp.mutect` unless `-kmvcf` used.
    - Renames: `{prefix}.remade.snp.vcf` -> `{prefix}.snp.mutect`, `{prefix}.snp` -> `{prefix}.snp.varscan`, `{prefix}.filtered.minos.raw.tab` -> `{prefix}.snp.minos`.
    - Converts BAM -> CRAM and removes original `.sort.bam` unless `--keep_bam`.
-   - Removes `{prefix}_minos` directory after extracting data.
 
 Final outputs (user-facing)
 - `{prefix}.DR.snp.final` — final annotated drug-relevant SNP list (tabular with Chrom, Position, Ref, Cons, VarFreq, Cov_total, VarAllele, Gene, Change, Ann, CodonWT, CodonVAR, Comments)
 - `{prefix}.EPI.snp.final.annoF` — tabular SNPs used for population / epidemiology analyses
-- `{prefix}.snp.minos`, `{prefix}.snp.varscan`, `{prefix}.snp.mutect` (depending on flags) — per-caller outputs or reconciled outputs
+- `{prefix}.snp.minos`, `{prefix}.snp.varscan`, `{prefix}.snp.mutect(.tab)` (depending on flags) — per-caller outputs or reconciled outputs
 - `{prefix}.wt` — wild-type callable positions
 - `{prefix}.lowcov` — low coverage positions annotated with gene
 - `{prefix}.gvcf` (kept if `--keep_gvcf`)
 
 Example
 ```bash
-python3 ThePipeline3 calling -p sample_A -t 4 -min_d 3 -min_q 15 -min_f 0.05
+ThePipeline3 calling -p sample_A -t 4 -e .cram
 ```
 Major outputs: `sample_A.DR.snp.final`, `sample_A.EPI.snp.final.annoF`, `sample_A.snp.minos`, `sample_A.snp.varscan`, `sample_A.snp.mutect` (depending on flags), `sample_A.wt`, `sample_A.lowcov`, `{prefix}.gvcf` (if kept via `-kgvcf`).
 
@@ -348,7 +347,7 @@ Important flags and behaviour notes
 
 ANNOTATION FILTER (PipeModules/AnnotationFilter.py)
 -------------------------------------------------
-Purpose
+**Purpose**
 - Remove SNPs located in regions marked as DISCARD in `data/H37Rv.annotation_new.tsv` (these are typically phage, PE/PPE and repetitive regions). The filter produces filtered EPI SNP files and filtered VCFs.
 
 CLI parameters
@@ -363,8 +362,8 @@ Outputs
 
 CONSENSUS (PipeModules/Consensus.py)
 -----------------------------------
-Purpose
-- Build non-redundant SNP tables across all samples, generate per-sample consensus FASTAs and multiFASTAs, run snp-sites to create SNP-only alignments, and produce final multi-FASTA and SNP tables useful for phylogenetics.
+**Purpose**
+- Build non-redundant SNP tables across all samples, generate per-sample consensus FASTAs and concat them in a multiFASTA, run snp-sites to create SNP-only alignments, and produce final multi-FASTA and SNP tables useful for phylogenetics.
 
 CLI parameters (driver `consensus` parser):
 
@@ -375,16 +374,24 @@ CLI parameters (driver `consensus` parser):
 | `-t`, `--threads` | Number of threads for parallel steps. | `1` | Integer. |
 | `-p`, `--prefix` | Output prefix for final multifasta/SNP table files. | (defaults to YYYYMMDD) | `dest`=`outfile` in parser. |
 
-Inputs
-- `{prefix}.EPI.snp.final.annoF` — annotated SNP files for each sample (present in each sample folder or prefix list)
-- `{prefix}.final_sin_wt.annotSnpEff.vcf` — SnpEff annotated Minos outputs (concatenated and deduped for annotation information)
+Inputs produced by the Calling pipeline:
+- `{prefix}.EPI.snp.final.annoF` 
+- `{prefix}.final_sin_wt.annotSnpEff.vcf` 
+- `{prefix}.wt` 
+- `{prefix}.indel.vcf`
+- `{prefix}.snp.minos`
+- `{prefix}.lowcov`
+- `{prefix}.snp.varscan`
+- `{prefix}.snp.mutect.tab`
+
+Other inputs:
 - `data/H37Rv.annotation_new.tsv` used for annotation context
 - `data/resistance_positions.csv` used for annotating resistance positions in SNP table generation
 
 Intermediate files and outputs
 - `positions_total` and `snpeff_concat` — temporary concatenations used to build the SNP table (deleted later)
 - `{outfile}.SNP_table.txt` — consolidated non-redundant SNP table with annotation and gene-level information (final)
-- Per-sample `{prefix}.fas` consensus FASTA files (created per sample while generating individual FASTAs), then concatenated into `{outfile}.mf.fasta`, gapped version `{outfile}.mf_gap.fasta`, snp-sites FASTA `{outfile}.mf_gap.snp-sites.fasta` and derived SNP table files such as `{outfile}.SNP_table.snp-sites.no-resis.txt`.
+- Per-sample `{prefix}.fas` consensus FASTA files (created per sample while generating individual FASTAs), then concatenated into `{outfile}.mf.fasta`, gapped version `{outfile}.mf_gap.fasta`, snp-sites FASTA `{outfile}.mf_gap.snp-sites.fasta` and a derived SNP table without variants associated with resistance `{outfile}.SNP_table.snp-sites.no-resis.txt`.
 
 Cleanup
 - Individual per-sample `.fas` files are removed after multi-FASTA generation.
@@ -393,11 +400,11 @@ Example
 ```bash
 python3 ThePipeline3 consensus -i ./ -t 4 -p study_2025
 ```
-Outputs: `study_2025.SNP_table.txt`, `study_2025.mf.fasta`, `study_2025.mf_gap.fasta`, `study_2025.mf_gap.snp-sites.fasta`, and related SNP tables.
+Outputs: `study_2025.SNP_table.txt`, `study_2025.mf.fasta`, `study_2025.mf_gap.fasta`, `study_2025.mf_gap.snp-sites.fasta`, `study_2025.mf_gap.snp-sites.no-resis.fasta` and related SNP tables.
 
 RESISTANCE (PipeModules/Resistance.py)
 -------------------------------------
-Purpose
+**Purpose**
 - Generate per-sample resistance report files `{prefix}.res` from `{prefix}.DR.snp.final` using the WHO catalog `data/catalogWHO2023_pipeline.csv` and produce `resistance_report.csv` aggregating all samples.
 
 CLI parameters
@@ -413,11 +420,11 @@ Outputs
 - `resistance_report.csv` — aggregated report for all samples in folder when `CreateReport()` is called
 
 Notes
-- `CorrectRes()` performs corrections for triallelic/double/triple codon handling and rewrites a corrected `.res` file.
+- `CorrectRes()`, included in the script by default, performs corrections for triallelic/double/triple codon handling and rewrites a corrected `.res` file.
 
 TYPING (PipeModules/Typing.py)
 ------------------------------
-Purpose
+**Purpose**
 - Infer MTBC lineage from each `{prefix}.DR.snp.final` by matching phylogenetic marker positions in `data/snp_phylo_fixed.tsv` and produce `lineage_typing.csv` listing Sample, Infection type (clonal/mixed/undetermined) and typing.
 
 Inputs
@@ -429,8 +436,8 @@ Outputs
 
 DISTANCES (PipeModules/Distances.py)
 -----------------------------------
-Purpose
-- Calculate pairwise genetic distances using the vendored/installed `pairsnp` package.
+**Purpose**
+- Calculate pairwise genetic distances.
 
 CLI parameters (driver `distances` parser):
 
@@ -446,7 +453,7 @@ Outputs
 
 GETCLUSTERS (PipeModules/Clusters.py)
 -------------------------------------
-Purpose
+**Purpose**
 - Given a distances file (output of `distances`), compute clusters at a series of SNP thresholds (0,5,10,12,15 by default) and write `{prefix}.clusters_{threshold}.tsv` files (or `prov` intermediate) listing clusters and members.
 
 CLI parameters (driver `getclusters` parser):
@@ -464,7 +471,7 @@ Outputs
 
 MULTIQC (PipeModules/Multiqc.py)
 -------------------------------
-Purpose
+**Purpose**
 - Run MultiQC collecting logs and reports produced by the pipeline (fastp JSON, kraken reports, qualimap outputs, etc.). Uses a bundled MultiQC environment located in `Programs/MultiQC_env/` and config `data/Configs/multiqc.config`.
 
 CLI parameters (driver `multiqc` parser):
@@ -479,7 +486,7 @@ Outputs
 
 ORGANIZE (PipeModules/Organize.py)
 ---------------------------------
-Purpose
+**Purpose**
 - Move pipeline outputs into a set of user-facing folders (`reports`, `original_fastq`, `clean_fastq`, `filtered_fastq`, `BAM_CRAM`, `variants`, `resistance`) to tidy results.
 
 Behaviour
@@ -488,7 +495,7 @@ Behaviour
 
 Repository, History and Version helpers
 -------------------------------------
-Repository
+**Repository**
 - `PipeModules.Repository.Programs()` reads `{repo_root}/data/Paths/programs_path` and returns a dictionary mapping program names to absolute exe/jar paths. This is the central place to point the pipeline to local binaries.
 - `PipeModules.Repository.Data()` reads `{repo_root}/data/Paths/data_path` and returns a dictionary with `reference`, `krakenDB` and other data resource paths used whenever modules don't receive explicit CLI paths.
 
@@ -497,16 +504,6 @@ History
 
 Version
 - `PipeModules.Version.version(program)` reads `data/Configs/software_versions.txt` and returns the recorded version string for a program key.
-
-
-
-Files the pipeline often removes (summary)
-----------------------------------------
-- FastClean: removes `{prefix}.fastp.html` (keeps JSON and cleanlog).
-- Kraken: removes `{prefix}.kraken`, `{prefix}.labels`, `{prefix}.filtered.readlist` unless `--noclean`.
-- Mapping: may remove `.sort.bam` when converting to `.sort.cram` (unless `--keep_bam`), and may rename files when deduping.
-- Coverage: removes `{prefix}.coverage` unless `--keep-coverage`.
-- Calling: removes many intermediate files at end; the code explicitly `os.remove()`s or renames a variety of files (see list in Calling() near the end). Important removed files include: `{prefix}.EPI.snp.nodensityfilter`, `{prefix}.final_sin_wt.vcf`, `{prefix}.lowcov.tsv`, `{prefix}.minos.raw.tab`, `{prefix}.parsed.vcf`, `{prefix}.snp.vcf`, `{prefix}.vcf`, `{prefix}.vcf.stats`, and possibly `{prefix}.snp.mutect` (depending on `-kmvcf` flag). The pipeline also deletes `{prefix}_minos` directory at the end.
 
 Imported data files and where they are used (explicit list)
 --------------------------------------------------------
@@ -526,15 +523,3 @@ Troubleshooting and tips
 - Memory-heavy steps: Kraken DB classification and Minos adjudication (Singularity) can be resource intensive. Only run on machines with sufficient RAM/CPU.
 - Encoding: Kraken `MakeReadList` uses `decode(sys.stdout.encoding)` — ensure a UTF-8 compatible locale to avoid decoding errors.
 - Reproducibility: `{prefix}.history` files are written for each sample with the exact command that was run and version info from `data/Configs/software_versions.txt`.
-
-Next steps and maintenance notes
--------------------------------
-- Keep `data/Configs/software_versions.txt` up-to-date when upgrading tools; it is also used for `history` tracking.
-- Consider adding a `--dry-run` or `--print-cmds` wrapper (the code already prints fastp command with `--verbose`) that echoes each external command before running it — useful for audit.
-- Add small unit tests or smoke datasets (tiny FASTQ) to let users validate environment installs.
-
-Acknowledgements
-----------------
-Manual generated by programmatic inspection of `ThePipeline3` and `PipeModules/` files in this repository. Use this as the authoritative reference for current code; update whenever code changes.
-
-End of ThePipeline3_manual.md
