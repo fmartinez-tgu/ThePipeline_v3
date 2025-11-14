@@ -341,15 +341,15 @@ Note: the exact set of temporary files depends on the options you pass to `ThePi
    - `Minos()` runs singularity-minos adjudication, producing a `{prefix}_minos` folder with Minos outputs including `final.vcf`; the code then extracts non-WT lines to `{prefix}.final_sin_wt.vcf` and removes the `{prefix}_minos` directory.
    - Annotates the Minos final VCF with SnpEff (produces `{prefix}.final_sin_wt.annotSnpEff.vcf`) if the reference is MTB_anc or H37Rv.
 
-5. Tabulation and multi-caller reconciliation
+5. **Tabulation and multi-caller reconciliation**
    - `minos_raw_vcf_to_tab()` transforms Minos VCF to `{prefix}.minos.raw.tab`, complements Minos output with variants called by both VarScan and Mutect2 but not kept by Minos, computes mean frequencies and depths from VarScan and Mutect2, and writes `{prefix}.filtered.minos.raw.tab` after `filter_raw_minos()` which keeps only rows with depth >= 3 and freq >= 5%.
 
-6. EPI, density filters and DR extraction
+6. **EPI, density filters and DR extraction**
    - `filter_EPI()` produces `{prefix}.EPI.snp.nodensityfilter` and then (after densityfilter) produces `{prefix}.EPI.snp.final.annoF`.
    - `densityfilter()` writes `{prefix}.dens_removed_snps.tab` with the positions removed by density, and final `.EPI.snp.final.annoF` with the kept positions.
    - `get_DR()` reads `{prefix}.filtered.minos.raw.tab` to produce `{prefix}.DR.snp.final`, including gene annotations, and `{prefix}.lowcov`.
 
-7. Cleanup and renames (the script's final steps)
+7. **Cleanup and renames (the script's final steps)**
    - Removes: `{prefix}.EPI.snp.nodensityfilter`, `{prefix}.final_sin_wt.vcf`, `{prefix}.lowcov.tsv`, `{prefix}.minos.raw.tab`, `{prefix}.parsed.vcf`, `{prefix}.snp.vcf`, `{prefix}.vcf`, `{prefix}.vcf.stats` (explicit removes in code). Also removes `{prefix}.snp.mutect` unless `-kmvcf` used.
    - Renames: `{prefix}.remade.snp.vcf` -> `{prefix}.snp.mutect`, `{prefix}.snp` -> `{prefix}.snp.varscan`, `{prefix}.filtered.minos.raw.tab` -> `{prefix}.snp.minos`.
    - Converts BAM -> CRAM and removes original `.sort.bam` unless `--keep_bam`.

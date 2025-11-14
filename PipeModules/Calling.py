@@ -1387,7 +1387,7 @@ def Calling(args):
     os.remove("{}.f1r2.tar.gz".format(args.prefix))
     os.remove("{}.vcf.filteringStats.tsv".format(args.prefix))
     os.remove("{}.vcf.idx".format(args.prefix))
-
+    os.remove("read-orientation-model_{}.tar.gz".format(args.prefix))
     # If not -kna, remove original SNP files from VarScan and Mutect2 and just keep files filtered by annotation
     if not args.keep_not_annof:
         os.remove("{}.parsed.vcf.original_no_annoF".format(args.prefix))
