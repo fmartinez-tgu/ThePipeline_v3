@@ -1384,6 +1384,9 @@ def Calling(args):
     os.remove("{}_unfiltered.vcf".format(args.prefix))
     os.remove("{}_unfiltered.vcf.stats".format(args.prefix))
     os.remove("{}.final_sin_wt.vcf_complemented".format(args.prefix))
+    os.remove("{}.f1r2.tar.gz".format(args.prefix))
+    os.remove("{}.vcf.filteringStats.tsv".format(args.prefix))
+    os.remove("{}.vcf.idx".format(args.prefix))
 
     # If not -kna, remove original SNP files from VarScan and Mutect2 and just keep files filtered by annotation
     if not args.keep_not_annof:
