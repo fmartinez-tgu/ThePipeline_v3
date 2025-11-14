@@ -552,19 +552,6 @@ def Minos(reference,minos, snpEff, prefix, single_end, ref_ID):
     sp.run(f"grep -v '0/0' {prefix}_minos/final.vcf > {prefix}.final_sin_wt.vcf; rm -r {prefix}_minos", shell=True)
     UpdateHistory("WT filtered from Minos output", "custom", prefix)
 
-    # # We annotate the Minos output with SnpEff
-    # cmd = ["java", "-jar", snpEff, "-v", "-hgvs1LetterAa", "-noStats", "-no-downstream", "-no-intergenic", "-no-intron", "-no-upstream", "-noLof",
-    #        "MTB_ancestor", "{}.final_sin_wt.vcf".format(prefix)]
-
-    # if any(item in ['MTB_anc', 'NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome'] for item in ref_ID):
-    #     with open("{}.final_sin_wt.annotSnpEff.vcf".format(prefix), "w+") as outfh:
-    #         stat = call(cmd, stdout=outfh)
-    #     UpdateHistory("Anotado con snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {}.final_sin_wt.vcf".format(prefix),"custom",prefix)
-    
-    # else:
-    #     sp.run([f"echo {prefix}.final_sin_wt.vcf was not annotated with SnpEff since the reference is not MTB_anc or H37Rv >> {prefix}.history"], 
-    #     stdout=sp.PIPE, shell=True, universal_newlines=True)
-
 
 def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     """
@@ -684,7 +671,6 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
                         depth_variant_varscan = freq_varscan.split(":")[1] 
                         dic_variants[ref_varscan+cons_varscan].append(float(depth_variant_varscan)) 
                 except KeyError: 
-
                     continue
 
         with open("{}.remade.snp.vcf".format(prefix), "r+") as input_mutect2:
