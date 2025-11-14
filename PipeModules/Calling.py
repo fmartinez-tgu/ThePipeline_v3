@@ -50,6 +50,7 @@ def VCFtoPandas(file):
 
     return data
 
+
 def mapq60_filter(prefix, ext, samtools, reference):
     '''Before running VarScan, we're going to filter the CRAM file using a MAPQ >= 60 to use it exclusively with VarScan'''
     print(f"FILTERING MAPQ 60 IN INPUT BAM")
@@ -59,7 +60,7 @@ def mapq60_filter(prefix, ext, samtools, reference):
     if ext == ".sort.bam":
         bamfile = f"{prefix}{ext}"
         # Command to filter the BAM file using a mapq >= 60 
-        cmd = f"""{samtools} view -h {bamfile} | awk '{{ if ($1 ~ /^@/ || $5 >= 60) print }}' >> {prefix}_mapq60.sort.bam"""
+        cmd = f"""{samtools} view -h {bamfile} | awk '{{ if ($1 ~ /^@/ || $5 >= 60) print }}' > {prefix}_mapq60.sort.bam"""
         sp.run(cmd, stdout=sp.PIPE, shell=True, universal_newlines=True)
 
     elif ext == ".cram":
@@ -68,10 +69,8 @@ def mapq60_filter(prefix, ext, samtools, reference):
         call(cram_to_sortbam)
 
         bamfile = f"{prefix}.sort.bam"
-        cmd = f"""{samtools} view -h {bamfile} | awk '{{ if ($1 ~ /^@/ || $5 >= 60) print }}' >> {prefix}_mapq60.sort.bam"""
+        cmd = f"""{samtools} view -h {bamfile} | awk '{{ if ($1 ~ /^@/ || $5 >= 60) print }}' > {prefix}_mapq60.sort.bam"""
         sp.run(cmd, stdout=sp.PIPE, shell=True, universal_newlines=True)
-
-
 
 
 def VarScan(reference, prefix, varscan, samtools, ext, ref_ID):
@@ -645,7 +644,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
 
             for line_mutect2 in lines_mutect2:
                 try:
-                    if any(f"{item}\t{position}\t" in line_mutect2 for item in ref_ID):
+                    if any(f"{item}\t{pos_minos}\t" in line_mutect2 for item in ref_ID):
                         ref_mutect, cons_mutect, info_mutect = itemgetter(3,4,9)(line_mutect2.split("\t"))
                         freq_variant_mutect = info_mutect.split(":")[2] 
                         dic_variants[ref_mutect+cons_mutect].append(float(freq_variant_mutect))
@@ -693,7 +692,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
 
             for line_mutect2 in lines_mutect2:
                 try:
-                    if any(f"{item}\t{position}\t" in line_mutect2 for item in ref_ID):
+                    if any(f"{item}\t{pos_minos}\t" in line_mutect2 for item in ref_ID):
                         ref_mutect, cons_mutect, info_mutect = itemgetter(3,4,9)(line_mutect2.split("\t"))
                         depth_variant_mutect = str(int(info_mutect.split(":")[1].split(",")[1])+int(info_mutect.split(":")[1].split(",")[0])) # Guardamos la depth de ambas variantes sumadas
                         dic_variants[ref_mutect+cons_mutect].append(float(depth_variant_mutect))
@@ -1352,6 +1351,7 @@ def Calling(args):
     print("\033[92m\nPerforming variant call adjudication with Minos for sample {}...\n\033[00m".format(args.prefix))
     Minos(reference,minos,snpEff,args.prefix, args.single_end, ref_ID)
     minos_raw_vcf_to_tab(args.prefix, ref_ID, snpEff)
+
     # EPI filtering
     print("\033[92m\nObtaining {}.EPI.snp.final.annoF\n\033[00m".format(args.prefix))
     filter_EPI(args.prefix)
