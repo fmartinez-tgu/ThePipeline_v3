@@ -275,7 +275,7 @@ CLI parameters (as parsed in `ThePipeline3`):
 | `-kgvcf`, `--keep_gvcf` | Keep the generated `.gvcf` file. | (flag) | Otherwise the gVCF is removed by default. |
 | `-kbam`, `--keep_bam` | Keep BAM files instead of converting to CRAM and removing them. | (flag) | Useful for debugging or workflow compatibility. |
 | `-kmvcf`, `--keep_mutect2_vcf` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are removed after their conversion to tabular format. |
-| `-kna`, `--keep_not_annof` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are removed after their conversion to tabular format. |
+| `-kna`, `--keep_not_annof` | Keep not-filtered-by-annotation VarScan and Mutect2 files | (flag) | |
 | `-se`, `--single_end` | Indicate reads are single-end for Minos adjudication. | (flag) | Alters `Minos()` `--reads` invocation. |
 | `-min_d`, `--min_depth` | Minimum depth considered callable. | `3` | Passed to Mutect2 `--callable-depth` and used in filters. |
 | `-min_q`, `--min_qual` | Minimum base quality for callable positions. | `15` | Passed as Mutect2 `-mbq`. |
