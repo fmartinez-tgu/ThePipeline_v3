@@ -275,6 +275,7 @@ CLI parameters (as parsed in `ThePipeline3`):
 | `-kgvcf`, `--keep_gvcf` | Keep the generated `.gvcf` file. | (flag) | Otherwise the gVCF is removed by default. |
 | `-kbam`, `--keep_bam` | Keep BAM files instead of converting to CRAM and removing them. | (flag) | Useful for debugging or workflow compatibility. |
 | `-kmvcf`, `--keep_mutect2_vcf` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are removed after their conversion to tabular format. |
+| `-kna`, `--keep_not_annof` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are removed after their conversion to tabular format. |
 | `-se`, `--single_end` | Indicate reads are single-end for Minos adjudication. | (flag) | Alters `Minos()` `--reads` invocation. |
 | `-min_d`, `--min_depth` | Minimum depth considered callable. | `3` | Passed to Mutect2 `--callable-depth` and used in filters. |
 | `-min_q`, `--min_qual` | Minimum base quality for callable positions. | `15` | Passed as Mutect2 `-mbq`. |
@@ -291,6 +292,28 @@ Required inputs
 - Programs required (from `Programs()`): varscan (VarScan jar), gatk (gatk executable), minos (Singularity image) and snpEff (jar), samtools, genomeCoverageBed (bedtools), snp-sites etc.
 
 High-level pipeline and generated intermediate files (ordered)
+
+Additional intermediate files (created and removed during a standard `calling` run)
+-----------------------------------------------------------------
+The `calling` workflow now creates several short-lived intermediate files during processing. Most of these are removed in the final cleanup step (unless you pass flags like `--keep_gvcf`, `--keep_bam`, `--kmvcf`, or `--keep_not_annof`). For completeness, here is a compact list of common intermediate files you may see in a run:
+
+- `{prefix}_mapq60.sort.bam` — MAPQ>=60 filtered BAM produced for VarScan (removed at end).
+- `{prefix}.mpileup.remove` — samtools mpileup temporary file used by VarScan (removed after VarScan).
+- `{prefix}.snp` — VarScan tabular output (renamed to `{prefix}.snp.varscan` during cleanup).
+- `{prefix}.parsed.vcf` — VarScan-converted VCF for Minos (original saved as `.parsed.vcf.original_no_annoF` if annotation filtering is applied).
+- `{prefix}_unfiltered.vcf`, `{prefix}.vcf`, `{prefix}_no_orientation.vcf` — Mutect2 intermediate VCFs produced during filtering and orientation removal (removed at end).
+- `{prefix}.gvcf` and `{prefix}.gvcf.stats` — Mutect2 gVCF (kept only with `--keep_gvcf`).
+- `{prefix}.indel.vcf`, `{prefix}.indel_sin_multiallelic.vcf`, `{prefix}.remade.indel.vcf` — intermediate indel extraction and filtering files (remade indels kept for downstream steps; originals may be removed).
+- `{prefix}.coverage`, `{prefix}.lowcov.tsv` — bedtools per-base coverage and low-coverage positions (per-base coverage removed by default; lowcov TSV used to produce `{prefix}.lowcov`).
+- `{prefix}.snp.vcf`, `{prefix}.multiallelic.snp.vcf`, `{prefix}.remade.snp.vcf` — Mutect2 SNP VCF and its multiallelic-splitted/remade versions. `{prefix}.remade.snp.vcf` is later renamed to `{prefix}.snp.mutect` in cleanup.
+- `{prefix}_minos/` (directory) and `{prefix}.final_sin_wt.vcf` — Minos adjudication folder and extracted non-WT VCF (the folder is removed; final_sin_wt.vcf is removed during cleanup unless annotated output is kept).
+- `{prefix}.final_sin_wt.vcf_complemented` — complemented Minos VCF with extra positions from VarScan/Mutect2 (temporary, removed after tabulation).
+- `{prefix}.final_sin_wt_complemented_annotSnpEff.v` — SnpEff-annotated Minos VCF (created only when reference matches MTB_anc/H37Rv).
+- `{prefix}.minos.raw.tab`, `{prefix}.filtered.minos.raw.tab` — tabular Minos+caller summary and its filtered version; the filtered file is renamed to `{prefix}.snp.minos` during cleanup.
+- `{prefix}.snp.mutect.tab` — Mutect2 tabular conversion of `{prefix}.snp.mutect` (mutect VCF -> tab); original VCF removed unless `--kmvcf` set.
+- `{prefix}.EPI.snp.nodensityfilter`, `{prefix}.dens_removed_snps.tab` — intermediate EPI/density filtering files (removed or consolidated into final `.EPI.snp.final.annoF`).
+
+Note: the exact set of temporary files depends on the options you pass to `ThePipeline3 calling` (e.g., `--keep_gvcf`, `--kmvcf`, `--keep_not_annof`, `--keep_bam`). The full cleanup block in `PipeModules/Calling.py` shows the files that are explicitly removed or renamed at the end of the run.
 1. **VarScan**
    - If `.cram` is input, converts to BAM first and sets `ext` to `.sort.bam`.
    - Creates `{prefix}_mapq60.sort.bam` (filtering MAPQ >= 60) using `mapq60_filter()`. This mapq60-filtered BAM will be the VarScan input. **In Mutect2, we keep the original because it already has its own internal filters.**

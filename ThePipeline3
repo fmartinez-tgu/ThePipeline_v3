@@ -242,6 +242,7 @@ def parse_args():
     callparser.add_argument("-kgvcf", "--keep_gvcf", dest="keep_gvcf", action="store_true", help="Keep the gVCF file. By default, this file is removed")
     callparser.add_argument("-kbam", "--keep_bam", dest="keep_bam", action="store_true", help="Keep the BAM file instead of CRAM. By default, BAMs are converted to CRAM if not present in the folder, and then removed")
     callparser.add_argument("-kmvcf", "--keep_mutect2_vcf", dest="kmvcf", action="store_true", help="Keep the original VCF file output from Mutect2")
+    callparser.add_argument("-kna", "--keep_not_annof", dest="keep_not_annof", action="store_true", help="Keep the original .snp.varscan and .snp.minos files before annotation filtering")
     callparser.add_argument("-se", "--single_end", dest="single_end", action="store_true", help="Add this argument for single-end sequences calling")
     callparser.add_argument("-min_d", "--min_depth", dest="min_depth",
                             default="3", type=str,

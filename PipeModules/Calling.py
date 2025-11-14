@@ -72,6 +72,8 @@ def mapq60_filter(prefix, ext, samtools, reference):
         sp.run(cmd, stdout=sp.PIPE, shell=True, universal_newlines=True)
 
 
+
+
 def VarScan(reference, prefix, varscan, samtools, ext, ref_ID):
     '''Call samtools mpileup and Varscan, then transform output to simple VCF for Minos'''
     from subprocess import call
@@ -176,7 +178,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
         headers = [x.strip() for x in lines if '#' in x]
         lines_noheaders = [x.strip() for x in lines if "#" not in x]
 
-    with open(f"{prefix}_sin_orientation.vcf", "w+") as output_file:
+    with open(f"{prefix}_no_orientation.vcf", "w+") as output_file:
         output_file.write("\n".join(headers))
 
         for line in lines_noheaders:
@@ -205,7 +207,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
 
     # Run SelectVariants to split INDELs and SNPs
     cmd_selectI = [gatk, "SelectVariants", "-R", reference,
-                   "-V", "{}_sin_orientation.vcf".format(prefix),
+                   "-V", "{}_no_orientation.vcf".format(prefix),
                    "--verbosity", "ERROR",
                    "--QUIET", "true",
                    "-OVI", "false",
@@ -218,7 +220,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     UpdateHistory(cmd_selectI, "gatk", prefix)
 
     cmd_selectS = [gatk, "SelectVariants", "-R", reference,
-                   "-V", "{}_sin_orientation.vcf".format(prefix),
+                   "-V", "{}_no_orientation.vcf".format(prefix),
                    "--verbosity", "ERROR",
                    "--QUIET", "true",
                    "-OVI", "false",
@@ -317,7 +319,7 @@ def annoF_varscan_mutect(prefix):
     os.rename(f"{prefix}.parsed.vcf_annoF", f"{prefix}.parsed.vcf")
     os.rename(f"{prefix}.snp", f"{prefix}.snp.original_no_annoF")
     os.rename(f"{prefix}.snp_annoF", f"{prefix}.snp")
-    os.rename(f"{prefix}.snp.vcf", f"{prefix}.snp.vcf.original")
+    os.rename(f"{prefix}.snp.vcf", f"{prefix}.snp.vcf.original_no_annoF")
     os.rename(f"{prefix}.snp.vcf_annoF", f"{prefix}.snp.vcf")
 
 
@@ -551,21 +553,21 @@ def Minos(reference,minos, snpEff, prefix, single_end, ref_ID):
     sp.run(f"grep -v '0/0' {prefix}_minos/final.vcf > {prefix}.final_sin_wt.vcf; rm -r {prefix}_minos", shell=True)
     UpdateHistory("WT filtered from Minos output", "custom", prefix)
 
-    # We annotate the Minos output with SnpEff
-    cmd = ["java", "-jar", snpEff, "-v", "-hgvs1LetterAa", "-noStats", "-no-downstream", "-no-intergenic", "-no-intron", "-no-upstream", "-noLof",
-           "MTB_ancestor", "{}.final_sin_wt.vcf".format(prefix)]
+    # # We annotate the Minos output with SnpEff
+    # cmd = ["java", "-jar", snpEff, "-v", "-hgvs1LetterAa", "-noStats", "-no-downstream", "-no-intergenic", "-no-intron", "-no-upstream", "-noLof",
+    #        "MTB_ancestor", "{}.final_sin_wt.vcf".format(prefix)]
 
-    if any(item in ['MTB_anc', 'NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome'] for item in ref_ID):
-        with open("{}.final_sin_wt.annotSnpEff.vcf".format(prefix), "w+") as outfh:
-            stat = call(cmd, stdout=outfh)
-        UpdateHistory("Anotado con snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {}.final_sin_wt.vcf".format(prefix),"custom",prefix)
+    # if any(item in ['MTB_anc', 'NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome'] for item in ref_ID):
+    #     with open("{}.final_sin_wt.annotSnpEff.vcf".format(prefix), "w+") as outfh:
+    #         stat = call(cmd, stdout=outfh)
+    #     UpdateHistory("Anotado con snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {}.final_sin_wt.vcf".format(prefix),"custom",prefix)
     
-    else:
-        sp.run([f"echo {prefix}.final_sin_wt.vcf was not annotated with SnpEff since the reference is not MTB_anc or H37Rv >> {prefix}.history"], 
-        stdout=sp.PIPE, shell=True, universal_newlines=True)
+    # else:
+    #     sp.run([f"echo {prefix}.final_sin_wt.vcf was not annotated with SnpEff since the reference is not MTB_anc or H37Rv >> {prefix}.history"], 
+    #     stdout=sp.PIPE, shell=True, universal_newlines=True)
 
 
-def minos_raw_vcf_to_tab(prefix, ref_ID):
+def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     """
     Convert Minos consensus VCF and complementary caller outputs into a tabular summary.
     Summary:
@@ -596,6 +598,8 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
      
     import subprocess as sp
     import pandas as pd
+    from subprocess import call
+
     iupac = {"M": ["A", "C"],
         "R": ["A", "G"],
         "W": ["A", "T"],
@@ -698,8 +702,6 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
                     
         from statistics import mean
 
-        # Guardamos la media de las frecuencias de cada variante extraídas de VarScan y Mutect2 y se añaden a la columna de VarFreq ordenadas de mayor a menor
-
         depths_to_write = [int(mean(values)) for keys,values in dic_variants.items()]
 
         if len(depths_to_write) == 1:
@@ -777,6 +779,20 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
 
         output_file.write("\n".join(df_final))
 
+    # Annotate complemented Minos VCF with  if H37Rv or MTB_anc reference is used
+
+    cmd = ["java", "-jar", snpEff, "-v", "-hgvs1LetterAa", "-noStats", "-no-downstream", "-no-intergenic", "-no-intron", "-no-upstream", "-noLof",
+           "MTB_ancestor", "{}.final_sin_wt.vcf_complemented".format(prefix)]
+
+    if any(item in ['MTB_anc', 'NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome'] for item in ref_ID):
+        with open("{}.final_sin_wt_complemented_annotSnpEff.vcf".format(prefix), "w+") as outfh:
+            stat = call(cmd, stdout=outfh)
+        #UpdateHistory("Anotado con snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {}.final_sin_wt.vcf_complemented".format(prefix),"custom",prefix)
+    
+    else:
+        sp.run([f"echo {prefix}.final_sin_wt.vcf_complemented was not annotated with SnpEff since the reference is not MTB_anc or H37Rv >> {prefix}.history"], 
+        stdout=sp.PIPE, shell=True, universal_newlines=True)
+
         # Now, we reassign the variable lines_noheader for the next chunk, since up to this point the elements are not sorted 
         with open("{}.final_sin_wt.vcf_complemented".format(prefix), "r+") as filtered_raw_complemented:
             lines_complemented = filtered_raw_complemented.readlines()
@@ -821,7 +837,6 @@ def minos_raw_vcf_to_tab(prefix, ref_ID):
             elif len(cons.split(",")) > 1 and check_lower_than_90(varfreq,90): 
 
                 variantes = cons.split(",")
-
                 max_index = varfreq.index(max(varfreq))
                 min_index = varfreq.index(min(varfreq))
                 variante_mayoritaria = variantes[max_index] 
@@ -1336,7 +1351,7 @@ def Calling(args):
     os.popen('cp ' + reference + ' .')
     print("\033[92m\nPerforming variant call adjudication with Minos for sample {}...\n\033[00m".format(args.prefix))
     Minos(reference,minos,snpEff,args.prefix, args.single_end, ref_ID)
-    minos_raw_vcf_to_tab(args.prefix, ref_ID)
+    minos_raw_vcf_to_tab(args.prefix, ref_ID, snpEff)
     # EPI filtering
     print("\033[92m\nObtaining {}.EPI.snp.final.annoF\n\033[00m".format(args.prefix))
     filter_EPI(args.prefix)
@@ -1364,7 +1379,18 @@ def Calling(args):
     os.rename("{}.snp".format(args.prefix),"{}.snp.varscan".format(args.prefix))
     os.remove("{}.snp.vcf".format(args.prefix))
     os.remove("{}.vcf".format(args.prefix))
-    os.remove("{}.vcf.stats".format(args.prefix))
+    os.remove("{}_mapq60.sort.bam".format(args.prefix))
+    os.remove("{}_no_orientation.vcf".format(args.prefix))
+    os.remove("{}_unfiltered.vcf".format(args.prefix))
+    os.remove("{}_unfiltered.vcf.stats".format(args.prefix))
+    os.remove("{}.final_sin_wt.vcf_complemented".format(args.prefix))
+
+    # If not -kna, remove original SNP files from VarScan and Mutect2 and just keep files filtered by annotation
+    if not args.keep_not_annof:
+        os.remove("{}.parsed.vcf.original_no_annoF".format(args.prefix))
+        os.remove("{}.snp.original_no_annoF".format(args.prefix))
+        os.remove("{}.snp.vcf.original_no_annoF".format(args.prefix))
+
 
     # Mutect2 output VCF file is converted to tab format by default if -kmvcf parameter is not used. If it is, we keep both files
     mutect2_vcf_to_tab(args.prefix)
