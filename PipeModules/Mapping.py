@@ -206,7 +206,7 @@ def Mapping(args):
     # Optionally, transform bam to cram
     if cram_compress:
         cmd_toCram = [samtools, "view", "-T", args.reference, "-C", "-o",
-                  "{}.sort.cram".format(args.prefix),
+                  "{}.cram".format(args.prefix),
                   "{}.sort.bam".format(args.prefix)]
 
         stat = sp.call(cmd_toCram)
