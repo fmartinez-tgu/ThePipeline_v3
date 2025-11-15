@@ -203,14 +203,14 @@ def generateSNPtable(paths, outfile, sample_list, threads):
            shell=True)
 
     if sample_list:
-        snpeff_files = [x+".final_sin_wt.annotSnpEff.vcf" for x in paths]
+        snpeff_files = [x+".final_sin_wt_complemented_annotSnpEff.vcf" for x in paths]
         for file in snpeff_files:
             sp.run("cat {} | grep -v '#' >>"
                    " snpeff_concat".format(file), shell=True)
 
     else:
         for folder in paths:
-            snpeff_files = glob.glob("{}/*.final_sin_wt.annotSnpEff.vcf".format(folder))
+            snpeff_files = glob.glob("{}/*.final_sin_wt_complemented_annotSnpEff.vcf".format(folder))
             for file in snpeff_files: 
                 sp.run("cat {} | grep -v '#' >>"
                    " snpeff_concat".format(file), shell=True)
