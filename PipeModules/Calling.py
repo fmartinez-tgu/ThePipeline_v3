@@ -605,7 +605,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
         '''This function will obtain the frequency for each consensus position called by Minos from the VarScan and Mutect2 outputs. 
         If the position is present in both callers, the mean frequency will be calculated'''
         
-        variantes = cons.split(",")
+        variantes = cons.split(",") # If there are multiple consensus variants, split them. For each one we will get the frequency from VarScan and Mutect2
         lista_keys = [ref+i for i in variantes]
         dic_variants = {key: [] for key in lista_keys}
 
@@ -724,7 +724,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     # We first import the varscan, mutect and minos positions to include the missing ones
 
     varscan_file = pd.read_csv("{}.snp".format(prefix), sep = "\t", header=0)
-    mutect_file = VCFtoPandas("{}.snp.vcf".format(prefix))
+    mutect_file = VCFtoPandas("{}.remade.snp.vcf".format(prefix)) # Now .remade.snp.vcf, before was .snp.vcf
     minos_file = VCFtoPandas("{}.final_sin_wt.vcf".format(prefix))
     varscan_dict = varscan_file.set_index('Position')['Cons'].to_dict()
     mutect_dict = mutect_file.set_index('POS')['ALT'].to_dict()
@@ -743,9 +743,27 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     # We add the common positions to the final file lines. We only need the MTB_anc, position, ref and alt columns. The rest will be empty
         
     for position in common_varscan_mutect: 
+
         if position not in minos_positions:
-            to_add = [ref_ID[0],str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],varscan_file[varscan_file['Position'] == position]['VarAllele'].iloc[0],".",".","VarScan_Mutect2",".","."]
-            lines_noheader.append("\t".join(to_add))
+            # Check if the position has only one variant in both callers
+            variants_varscan = varscan_file[varscan_file['Position'] == position]['VarAllele'].tolist()
+            variants_mutect = mutect_file[mutect_file['POS'] == position]['ALT'].tolist()
+
+            # If there's only one possible variant in both callers, and it's the same in both callers, we add it to Minos
+            if len(variants_varscan) == 1 and len(variants_mutect) == 1 and variants_varscan[0] == variants_mutect[0]:
+                to_add = [ref_ID[0],str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],varscan_file[varscan_file['Position'] == position]['VarAllele'].iloc[0],".",".","VarScan_Mutect2",".","."]
+                lines_noheader.append("\t".join(to_add))
+            
+            # If there's only one possible variant in both callers, but they are different, we add both variants as multiallelic position
+            elif len(variants_varscan) == 1 and len(variants_mutect) == 1 and variants_varscan[0] != variants_mutect[0]:
+                to_add = [ref_ID[0],str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],"{},{}".format(variants_varscan[0], variants_mutect[0]),".",".","VarScan_Mutect2",".","."]
+                lines_noheader.append("\t".join(to_add))
+            
+            # If there's more than one possible variant in any of the callers, we add all the variants as multiallelic position
+            elif len(variants_varscan) >= 1 or len(variants_mutect) >= 1:
+                all_variants = set(variants_varscan + variants_mutect)
+                to_add = [ref_ID[0],str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],",".join(all_variants),".",".","VarScan_Mutect2",".","."]
+                lines_noheader.append("\t".join(to_add))
     
     # Now we save the Minos output file including the common positions found
 
@@ -779,9 +797,9 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
         stdout=sp.PIPE, shell=True, universal_newlines=True)
 
         # Now, we reassign the variable lines_noheader for the next chunk, since up to this point the elements are not sorted 
-        with open("{}.final_sin_wt.vcf_complemented".format(prefix), "r+") as filtered_raw_complemented:
-            lines_complemented = filtered_raw_complemented.readlines()
-            lines_noheader = [x.strip() for x in lines_complemented if "#" not in x]
+    with open("{}.final_sin_wt.vcf_complemented".format(prefix), "r+") as filtered_raw_complemented:
+        lines_complemented = filtered_raw_complemented.readlines()
+        lines_noheader = [x.strip() for x in lines_complemented if "#" not in x]
 
 
     with open("{}.minos.raw.tab".format(prefix), "w+") as raw_tab:
