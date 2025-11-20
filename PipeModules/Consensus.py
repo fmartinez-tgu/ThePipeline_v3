@@ -195,8 +195,7 @@ def generateSNPtable(paths, outfile, sample_list, threads):
     vcf_files.drop_duplicates(subset=["POS", "ALT"], inplace=True)
     sp.run("rm positions_total", shell=True)
 
-    # Ahora vamos a hacer un DF de pandas a partir de los raw del minos anotados con SnpEff que contengan las posiciones
-    # únicas sacadas de los .annoF
+
     print("\033[92m\nConcatenating SnpEff files\n\033[00m")
     sp.run("rm snpeff_concat*", shell=True)
     sp.run('printf "CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE\n" >> snpeff_concat',

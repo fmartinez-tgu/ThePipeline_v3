@@ -36,35 +36,56 @@ def LoadAnnotation(anno_file):
     return discard_positions
 
 
+# def FilterSnps(args):
+#     '''Filter SNP files according to the TSV file
+#     passed. This TSV file is an annotation file of the
+#     H37Rv genome, with the last column indicating if SNPs in 
+#     this region must be kept or not'''
+
+#     import os
+#     import vcf
+
+#     annotation = LoadAnnotation("{}/data/H37Rv.annotation_new.tsv".format(
+#                     os.path.split(
+#                         os.path.dirname(
+#                             os.path.abspath(__file__)))[0]))
+
+#     with open("{}.EPI.snp.final.annoF".format(args.file_name), "w") as outfile:
+#         with open("{}.EPI.snp.final".format(args.prefix)) as infile:
+#             header = infile.readline()
+#             outfile.write(header)
+#             for line in infile:
+#                 pos = line.strip().split("\t")[1]
+#                 if pos not in annotation:
+#                         outfile.write(line)
+    
+#     vcf_reader = vcf.Reader(open("{}.EPI.snp.vcf".format(args.prefix), 'r'))
+#     vcf_output = vcf.Writer(open("{}.EPI.snp.vcf.annoF".format(args.prefix), 'w'), vcf_reader)
+
+#     for record in vcf_reader:
+#         if str(record.POS) not in annotation:
+#             vcf_output.write_record(record)
+
+#     return 0
+
 def FilterSnps(args):
-    '''Filter SNP files according to the TSV file
-    passed. This TSV file is an annotation file of the
-    H37Rv genome, with the last column indicating if SNPs in 
-    this region must be kept or not'''
+    '''Filter SNP files of an input file'''
 
     import os
-    import vcf
-
-    annotation = LoadAnnotation("{}/data/H37Rv.annotation_new.tsv".format(
+    import subprocess as sp 
+    annotation = LoadAnnotation("/data/ThePipeline_v3/data/H37Rv.annotation_new.tsv".format(
                     os.path.split(
                         os.path.dirname(
                             os.path.abspath(__file__)))[0]))
 
-    with open("{}.EPI.snp.final.annoF".format(args.prefix), "w") as outfile:
-        with open("{}.EPI.snp.final".format(args.prefix)) as infile:
-            header = infile.readline()
-            outfile.write(header)
-            for line in infile:
+
+    with open("{}_annoF".format(args.file_name), "w") as outfile:
+        with open("{}".format(args.file_name)) as infile:
+            lines_varscan = infile.readlines()
+            headers = [x.strip() for x in lines_varscan if "#" in x]
+            rest_of_file = [x.strip() for x in lines_varscan if "#" not in x]
+            outfile.write("\n".join(headers)+"\n")
+            for line in rest_of_file:
                 pos = line.strip().split("\t")[1]
                 if pos not in annotation:
-                        outfile.write(line)
-    
-    vcf_reader = vcf.Reader(open("{}.EPI.snp.vcf".format(args.prefix), 'r'))
-    vcf_output = vcf.Writer(open("{}.EPI.snp.vcf.annoF".format(args.prefix), 'w'), vcf_reader)
-
-    for record in vcf_reader:
-        if str(record.POS) not in annotation:
-            vcf_output.write_record(record)
-
-    return 0
-    
+                        outfile.write(f"{line}\n")
