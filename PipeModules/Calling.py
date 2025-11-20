@@ -897,7 +897,7 @@ def filter_raw_minos(file_name,prefix):
                 continue
 
         output_file.write(("").join(posiciones_to_keep))
-    sp.run([f"echo {prefix} Minos output filtered keeping variants with depth>3 and freq>5 >> {prefix}.history"],shell=True, universal_newlines=True) 
+    sp.run([f"echo {prefix} Minos output filtered keeping variants with depthc \> 3 and freq \> 5 >> {prefix}.history"],shell=True, universal_newlines=True) 
     
     return 0
 
@@ -1406,6 +1406,7 @@ def Calling(args):
     os.remove("{}.vcf.filteringStats.tsv".format(args.prefix))
     os.remove("{}.vcf.idx".format(args.prefix))
     os.remove("read-orientation-model_{}.tar.gz".format(args.prefix))
+    
     # If not -kna, remove original SNP files from VarScan and Mutect2 and just keep files filtered by annotation
     if not args.keep_not_annof:
         os.remove("{}.parsed.vcf.original_no_annoF".format(args.prefix))

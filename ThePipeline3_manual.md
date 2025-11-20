@@ -384,10 +384,10 @@ ANNOTATION FILTER (PipeModules/AnnotationFilter.py)
 - Remove SNPs located in regions marked as DISCARD in `data/H37Rv.annotation_new.tsv` (these are typically phage, PE/PPE and repetitive regions). The filter produces filtered EPI SNP files and filtered VCFs.
 
 **CLI parameters**
-- Called by driver as `annotation_filter` and expects `-p/--prefix` argument (see ThePipeline3 parser). The function `FilterSnps(args)` uses `{prefix}.EPI.snp.final` and `{prefix}.EPI.snp.vcf` and writes `{prefix}.EPI.snp.final.annoF` and `{prefix}.EPI.snp.vcf.annoF`.
+- Called by driver as `annotation_filter` and expects `-fn/--file_name` argument (see ThePipeline3 parser). The function `FilterSnps(args)` takes the file and saves a `{file_name}_annoF` output
 
 **Inputs**
-- `{prefix}.EPI.snp.final`, `{prefix}.EPI.snp.vcf` (produced by Calling pipeline)
+- `{file_name}`, `{file_name}` (produced by Calling pipeline)
 - `data/H37Rv.annotation_new.tsv` (used via `LoadAnnotation()`)
 
 **Example**
