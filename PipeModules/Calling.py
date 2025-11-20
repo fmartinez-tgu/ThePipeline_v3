@@ -26,6 +26,7 @@ def check_extension(ext):
         sys.exit("\033[91mERROR: We only accept files"
                  " ended in .bam or .cram extension\033[0m")
 
+
 def get_reference_id(prefix, ext, samtools):
     '''Function to extract the name of the reference to be added to the output SNP files, so it's not MTB_anc by default'''
     import subprocess
@@ -35,6 +36,7 @@ def get_reference_id(prefix, ext, samtools):
     ref_name = ref_name.stdout.strip()
     ref_ID.append(ref_name)
     return ref_ID
+
 
 def VCFtoPandas(file):
     import pandas
@@ -106,7 +108,6 @@ def VarScan(reference, prefix, varscan, samtools, ext, ref_ID):
         UpdateHistory(cmd, "varscan", prefix)
         call(["rm", "{}.mpileup.remove".format(prefix)])
 
-        UpdateHistory(cmd, "varscan", prefix)
 
     # Conversion of VarScan output to VCF so it can be parsed by Minos
     with open("{}.parsed.vcf".format(prefix), "w") as outfh:
@@ -168,7 +169,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     UpdateHistory(cmd_Mutect, "gatk", prefix)
     
     # Now we mark the reads with orientation bias and filter them
-    print("\033[92m\nFiltering {} by read orientation\n\033[00m".format(prefix))
+    print("\033[92m\nFiltering {} Mutect2-called variants by read orientation\n\033[00m".format(prefix))
     sp.run(f"{gatk} LearnReadOrientationModel -I {prefix}.f1r2.tar.gz -O read-orientation-model_{prefix}.tar.gz", shell=True)
     sp.run(f"{gatk} FilterMutectCalls -V {prefix}_unfiltered.vcf -R {reference} --ob-priors read-orientation-model_{prefix}.tar.gz -O {prefix}.vcf --min-median-read-position 15", shell=True)
 
@@ -183,6 +184,8 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
         for line in lines_noheaders:
             if "orientation" not in line:
                 output_file.write(f"\n{line}")
+
+    sp.run([f"echo Strand bias corrected in {prefix} Mutect2 output file  >> {prefix}.history"], shell=True, universal_newlines=True)
 
 
     #now produce the gVCF for accurate WT calling
@@ -275,6 +278,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
 def annoF_varscan_mutect(prefix):
 
     import os
+    import subprocess as sp 
     annotation = LoadAnnotation("/data/ThePipeline_v3/data/H37Rv.annotation_new.tsv".format(
                     os.path.split(
                         os.path.dirname(
@@ -321,9 +325,11 @@ def annoF_varscan_mutect(prefix):
     os.rename(f"{prefix}.snp.vcf", f"{prefix}.snp.vcf.original_no_annoF")
     os.rename(f"{prefix}.snp.vcf_annoF", f"{prefix}.snp.vcf")
 
+    sp.run([f"echo Annotation filtering performed on {prefix} VarScan and Mutect2 output files >> {prefix}.history"],shell=True, universal_newlines=True)
 
 def mutect2_vcf_to_tab(prefix):
 
+    import subprocess as sp
     '''Convert Mutect2 VCF output to tab file for easier visualization. Original VCF will be removed unless -kmvcf parameter is used'''
     # Import Mutect2 VCF file
     
@@ -343,6 +349,8 @@ def mutect2_vcf_to_tab(prefix):
             cov_allele = tokens[9].split(":")[3] # Save the depth 
             new_line = [tokens[0],tokens[1],tokens[3],tokens[4],varfreq,cov_allele,tokens[4]] # Line that will be added to the file
             output_mutect_tab.write(("\t").join(new_line)+"\n")
+    
+    sp.run([f"echo {prefix} Mutect2 VCF final file converted to TAB format  >> {prefix}.history"],shell=True, universal_newlines=True)
 
 
 
@@ -522,7 +530,7 @@ def callWT(prefix):
 
 
 
-def Minos(reference,minos, snpEff, prefix, single_end, ref_ID):
+def Minos(reference, minos, prefix, single_end):
     '''Perform final variant call adjudication with Minos'''
     import sys, os
     import subprocess as sp
@@ -558,7 +566,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     Convert Minos consensus VCF and complementary caller outputs into a tabular summary.
     Summary:
         Reads Minos consensus VCF and the outputs from VarScan and Mutect2 (expected to follow specific filename patterns
-        derived from the provided prefix). It complements Minos consensused positions with positions that are common between
+        derived from the provided prefix). It complements Minos consensus positions with positions that are common between
         VarScan and Mutect2 but missing from Minos, then builds a tab-delimited summary table that contains, for each
         position: chromosome, position, reference base, consensus call, variant frequency(s) (percent), coverage/depth(s)
         and reported variant allele(s). The function infers frequencies and depths by collecting values from VarScan and
@@ -644,10 +652,10 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
         # to the VarFreq column ordered from highest to lowest
 
         freqs_to_write = [round(mean(values)*100,2) for keys,values in dic_variants.items()]
-        if len(freqs_to_write) == 1:
+        if len(freqs_to_write) == 1: # If there's only one variant, return the mean frequence for it
             return freqs_to_write[0]
                     
-        elif len(freqs_to_write) > 1:
+        elif len(freqs_to_write) > 1: # If there's more than one variant, return the a list of the mean frequence for each of them
             return freqs_to_write
 
 
@@ -689,10 +697,10 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
 
         depths_to_write = [int(mean(values)) for keys,values in dic_variants.items()]
 
-        if len(depths_to_write) == 1:
+        if len(depths_to_write) == 1: # If there's only one variant, return the mean depth for it
             return depths_to_write[0]
                     
-        elif len(depths_to_write) > 1:
+        elif len(depths_to_write) > 1: # If there's more than one variant, return the a list of the mean depth for each of them
             return depths_to_write
 
 
@@ -790,7 +798,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     if any(item in ['MTB_anc', 'NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome'] for item in ref_ID):
         with open("{}.final_sin_wt_complemented_annotSnpEff.vcf".format(prefix), "w+") as outfh:
             stat = call(cmd, stdout=outfh)
-        #UpdateHistory("Anotado con snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {}.final_sin_wt.vcf_complemented".format(prefix),"custom",prefix)
+        sp.run([f"echo Annotated with snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {prefix}.final_sin_wt.vcf_complemented >> {prefix}.history"])
     
     else:
         sp.run([f"echo {prefix}.final_sin_wt.vcf_complemented was not annotated with SnpEff since the reference is not MTB_anc or H37Rv >> {prefix}.history"], 
@@ -851,13 +859,17 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
                 raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,"?",string_varfreq,string_depth,string_VarAllele))
                                    
     filter_raw_minos("{}.minos.raw.tab".format(prefix),prefix)
+
+    sp.run([f"echo Frequency and depth rescued for {prefix} Minos output. VarScan_Mutect2 common variants not present in Minos output were also included  >> {prefix}.history"],
+           shell=True, universal_newlines=True)
     return 0
 
 
 def filter_raw_minos(file_name,prefix):
     '''Filters the Minos raw tab output to keep only those positions with depth >= 3 and frequency >= 5%'''
     from operator import itemgetter
-    #from .History import UpdateHistory
+    import subprocess as sp 
+    
     # Open the Minos raw tab file
     with open(file_name, "r+") as input_file:
         lines_input = input_file.readlines()
@@ -883,8 +895,9 @@ def filter_raw_minos(file_name,prefix):
             else:
                 continue
 
-        output_file.write(("").join(posiciones_to_keep)) 
-    #UpdateHistory("Minos output filtered keeping variants with depth > 3 and freq > 5", "custom", prefix)
+        output_file.write(("").join(posiciones_to_keep))
+    sp.run([f"echo {prefix} Minos output filtered keeping variants with depth>3 and freq>5 >> {prefix}.history"],shell=True, universal_newlines=True) 
+    
     return 0
 
   
@@ -926,7 +939,7 @@ def filter_EPI(prefix):
 
 def densityfilter(prefix, window, dens):
     '''Filter those SNPs that are in high density areas of SNPs'''
-    from .History import UpdateHistory
+    import subprocess as sp
     import pandas as pd
     pos_to_remove = []
 
@@ -968,10 +981,8 @@ def densityfilter(prefix, window, dens):
     print(len(pos_to_remove), " SNPs removed by density filter: "
           "window = ", window, ", density = ", dens)
 
-    #UpdateHistory("Density filter applied to {}.EPI.snp.vcf file"
-    #              " with parameters window = {} and density = "
-    #              "{}".format(prefix, window, dens),
-    #              "custom", prefix)
+    sp.run([f"echo EPI and density filter applied to {prefix}. Saved in {prefix}.EPI.snp.final.annoF >> {prefix}.history"],shell=True, universal_newlines=True)
+
 
 
 def LoadAnnotation(anno_file):
@@ -1018,7 +1029,7 @@ def correct_line(content):
 	
 def get_DR(prefix):
     '''Perform annotation of DR.snp files and lowcov positions'''
-    import os
+    import subprocess as sp 
     from .AnnotatePos import annotateSingle, annotateDouble, annotateTriple
 
     annotation = "/data/ThePipeline_v3/data/annotation_H37Rv.csv"
@@ -1051,10 +1062,6 @@ def get_DR(prefix):
             genes[line[0]] = [int(line[-3]),int(line[-2]),line[-1]]
             names[line[0]] = line[1]
 
-    import sys
-    #print(genes)
-
-    print("\033[92m\nNow annotating variants from sample {}...\n\033[00m".format(prefix))
     #now we load the DR-snp file and annotate each individual position
     
     with open("{}.filtered.minos.raw.tab".format(prefix)) as infile:
@@ -1197,10 +1204,15 @@ def get_DR(prefix):
         for position, gene in low_cov.items():
             outfile.write("\t".join([position, gene, names[gene]+"\n"]))
 
+    sp.run([f"echo DR file obtained for {prefix} >> {prefix}.history"],shell=True, universal_newlines=True)
+
+    
+
 def CorrectDR(prefix):
     '''Función para corregir la anotación de las posiciones trialélicas'''
 
     from .AnnotatePos import annotateSingle, annotateDouble, annotateTriple
+    import subprocess as sp
 
     annotation = "/data/ThePipeline_v3/data/annotation_H37Rv.csv"
     
@@ -1288,6 +1300,7 @@ def CorrectDR(prefix):
             else:
                 output_DR_file.write("\t".join(line)+"\n")
 
+    sp.run([f"echo {prefix}.DR.snp.final corrected >> {prefix}.history"],shell=True, universal_newlines=True)
     
     
 def Calling(args):
@@ -1353,7 +1366,7 @@ def Calling(args):
     #unnecessary singularity path bindings, and run the program inside its container
     os.popen('cp ' + reference + ' .')
     print("\033[92m\nPerforming variant call adjudication with Minos for sample {}...\n\033[00m".format(args.prefix))
-    Minos(reference,minos,snpEff,args.prefix, args.single_end, ref_ID)
+    Minos(reference,minos,args.prefix, args.single_end)
     minos_raw_vcf_to_tab(args.prefix, ref_ID, snpEff)
 
     # EPI filtering
@@ -1367,7 +1380,7 @@ def Calling(args):
 
 
     # DR extraction and correction
-    print("\033[92m\nObtaining {}.DR.snp.final\n\033[00m".format(args.prefix, args.prefix))
+    print("\033[92m\nObtaining DR file for {} and annotating its variants\n\033[00m".format(args.prefix))
     get_DR(args.prefix)
     CorrectDR(args.prefix)
     
