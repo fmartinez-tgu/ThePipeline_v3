@@ -798,7 +798,8 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     if any(item in ['MTB_anc', 'NC_000962.3 Mycobacterium tuberculosis H37Rv, complete genome'] for item in ref_ID):
         with open("{}.final_sin_wt_complemented_annotSnpEff.vcf".format(prefix), "w+") as outfh:
             stat = call(cmd, stdout=outfh)
-        sp.run([f"echo Annotated with snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {prefix}.final_sin_wt.vcf_complemented >> {prefix}.history"])
+        sp.run([f"echo Annotated with snpEff: java -jar snpEff -v -hgvs1LetterAa -noStats -no-downstream -no-intergenic -no-intron -no-upstream -noLof MTB_ancestor {prefix}.final_sin_wt.vcf_complemented >> {prefix}.history"],
+               shell=True, universal_newlines=True)
     
     else:
         sp.run([f"echo {prefix}.final_sin_wt.vcf_complemented was not annotated with SnpEff since the reference is not MTB_anc or H37Rv >> {prefix}.history"], 
