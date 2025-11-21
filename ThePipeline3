@@ -359,7 +359,7 @@ def parse_args():
                                    " and logs. By default, the folder in which"
                                    " ThePipeline3 is being executed"))
 
-    # PARSER FOR ANNOTATION FILTER (compat: annotation_filter and annotationfilter)
+    # PARSER FOR ANNOTATION FILTER
     annparser = subparsers.add_parser("annotation_filter",
                                       help="Filter SNP files using the annotation TSV (PE/PPE/phage regions).")
     annparser.add_argument("-f", "--file", dest="file_name",
