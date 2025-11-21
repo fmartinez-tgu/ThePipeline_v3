@@ -350,7 +350,7 @@ def parse_args():
                                         help="Generate a unique report by "
                                              "joining logs and reports from "
                                              "the different programs used at "
-                                             "ThePipeline3")
+                                    "ThePipeline3")
     multiparser.add_argument("-o", "--output", dest="output",
                              default="multiqc_report",
                              help=("Output file. Default: multiqc_report"))
@@ -358,6 +358,13 @@ def parse_args():
                              help=("Folder were MultiQC must search reports"
                                    " and logs. By default, the folder in which"
                                    " ThePipeline3 is being executed"))
+
+    # PARSER FOR ANNOTATION FILTER (compat: annotation_filter and annotationfilter)
+    annparser = subparsers.add_parser("annotation_filter",
+                                      help="Filter SNP files using the annotation TSV (PE/PPE/phage regions).")
+    annparser.add_argument("-f", "--file", dest="file_name",
+                           required=True,
+                           help=("Input SNP file to filter. Provide the filename (for example: sample.EPI.snp.final or sample.snp)"))
 
     # PARSER GETCLUSTERS
     clustparser = subparsers.add_parser("getclusters",
