@@ -340,13 +340,13 @@ def mutect2_vcf_to_tab(prefix):
 
     # Start up new file
     with open(f"{prefix}.snp.mutect.tab", "w+") as output_mutect_tab:
-        output_mutect_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_allele\tVarAllele\n")
+        output_mutect_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tTotal_reads\tVarAllele\n")
     
         # Now, we convert the Mutect2 lines to the new format and write them in the output file
         for line in lines_mutect:
             tokens = line.split("\t")
             varfreq = str(round(float(tokens[9].split(":")[2])*100,2)) # Save the variant frequency 
-            cov_allele = tokens[9].split(":")[3] # Save the depth 
+            cov_allele = tokens[9].split(":")[3] # Save the depth of both ref and cons alleles
             new_line = [tokens[0],tokens[1],tokens[3],tokens[4],varfreq,cov_allele,tokens[4]] # Line that will be added to the file
             output_mutect_tab.write(("\t").join(new_line)+"\n")
     
@@ -578,12 +578,12 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
         - Merges these missing positions into the Minos VCF data.
         - For each variant, collects per-allele frequencies and depths from VarScan and Mutect2,
           taking the mean when both callers report the same allele.
-        - Writes a tab file "{prefix}.minos.raw.tab" with columns: Chrom, Position, Ref, Cons, VarFreq, Cov_allele, VarAllele
+        - Writes a tab file "{prefix}.minos.raw.tab" with columns: Chrom, Position, Ref, Cons, VarFreq, Cov_total, VarAllele
         - For biallelic sites with ALT freq < 90%: map Ref+ALT to IUPAC code in Cons and keep ALT in VarAllele.
         - For biallelic sites with ALT freq >= 90%: put the ALT in Cons and VarAllele (fixed).
         - For multi-allelic sites:
           - If any allele has >= 90% frequency, that allele is placed in Cons and all alleles/frequencies/depths
-            are recorded in VarAllele/VarFreq/Cov_allele fields (major allele first).
+            are recorded in VarAllele/VarFreq/Cov_total fields (major allele first).
           - If no allele is fixed, Cons is set to "?" and alleles/frequencies/depths are written in parallel order
             so frequencies map to the listed variants.
           - Calls filter_raw_minos(...) at the end to apply additional filters (e.g., low coverage or low frequency).
@@ -812,7 +812,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
 
 
     with open("{}.minos.raw.tab".format(prefix), "w+") as raw_tab:
-        raw_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_allele\tVarAllele\n") # Header
+        raw_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_total\tVarAllele\n") # Header
 
         for line in lines_noheader: # For each position in the Minos output (now complemented with common positions)
             tokens = line.split("\t")

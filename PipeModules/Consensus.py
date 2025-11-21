@@ -162,7 +162,7 @@ def generateSNPtable(paths, outfile, sample_list, threads):
     except:
         pass
 
-    sp.run('printf "#CHROM\tPOS\tREF\tALT\tVarFreq\tCov_allele\tVarAllele\n" >> positions_total',
+    sp.run('printf "#CHROM\tPOS\tREF\tALT\tVarFreq\tCov_total\tVarAllele\n" >> positions_total',
            shell=True)
 
     if sample_list:

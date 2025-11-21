@@ -362,6 +362,68 @@ Note: the exact set of temporary files depends on the options you pass to `ThePi
 - `{prefix}.lowcov` — low coverage positions annotated with gene
 - `{prefix}.gvcf` (kept if `--keep_gvcf`)
 
+**Header explanation for different files**
+--------------------------------------------------
+VarScan (.snp.varscan)
+| Column | Description | 
+| `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference |
+| `Position` | Genomic coordinate of the variant |
+| `Ref` | Reference base found in the genome |
+| `Cons`| Consensus genotype called by VarScan at this position |
+|`Reads1`| Number of reads supporting reference |
+|`Reads2`| Number of reads supporting variant |
+|`VarFreq`| Allele frequency of variant by read count |
+|`Strands1`| Number of strands on which reference is observed | 
+|`Strands2`| Number of strands on which variant is observed |
+|`Qual1`| Average base quality of reference-supporting bases |
+|`Qual2`| Average base quality of variant-supporting bases |
+|`Pvalue`| P-value from Fisher's exact test (0.98 means not calculated) |
+|`MapQual1`| Average mapping quality of reference-supporting reads |
+|`MapQual2`| Average mapping quality of variant-supporting reads |
+|`Reads1Plus`| Number of reference-supporting reads in + orientation |
+|`Reads1Minus`| Number of reference-supporting reads in - orientation |
+|`Reads2Plus`| 	Number of variant-supporting reads in + orientation |
+|`Reads2Minus`| 	Number of variant-supporting reads in - orientation |
+|`VarAllele`| Most prevalent variant allele | 
+
+Mutect2 (.snp.mutect.tab)
+| Column | Description | Notes |
+| `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference | |
+| `Position` | Genomic coordinate of the variant | |
+| `Ref` | Reference base found in the genome | |
+| `Cons`| Consensus genotype called by VarScan at this position | |
+|`VarFreq`|  Allele frequency of variant by read count | |
+|`Cov_total`| Total depth for that position (Ref+Cons depths) | Former: Cov_allele |
+|`VarAllele`| Most prevalent variant allele | |
+
+DR.snp.final
+| Column | Description | 
+| `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference | 
+| `Position` | Genomic coordinate of the variant | 
+| `Ref` | Reference base found in the genome | 
+| `Cons`| Consensus genotype called by VarScan at this position | 
+|`VarFreq`|  Allele frequency of variant by read count | 
+|`Cov_total`| Total depth for that position (Ref+Cons depths) | 
+|`VarAllele`| Most prevalent variant allele | 
+| `Gene`| Gene locus name | 
+| `Change`| Codon change |
+| `Ann`| Type of variant change (syn, non-syn, intergenic) |
+| `CodonWT`| Wildtype codon |
+| `CodonVAR`| Variant codon | 
+|`Comments` | Possibilities: Double mutation, TRIALLELIC POSITION | 
+
+.EPI.snp.final.annoF and .snp.minos
+| Column | Description | Notes |
+| `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference | |
+| `Position` | Genomic coordinate of the variant | |
+| `Ref` | Reference base found in the genome | |
+| `Cons`| Consensus genotype called by VarScan at this position | |
+|`VarFreq`|  Allele frequency of variant by read count | |
+|`Cov_total`| Total depth for that position (Ref+Cons depths) | Former: Cov_allele |
+|`VarAllele`| Most prevalent variant allele | |
+
+
+
 **Example**
 ```bash
 ThePipeline3 calling -p sample_A -t 4 -e .cram
