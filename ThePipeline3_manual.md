@@ -366,6 +366,7 @@ Note: the exact set of temporary files depends on the options you pass to `ThePi
 --------------------------------------------------
 VarScan (.snp.varscan)
 | Column | Description | 
+|---|---|
 | `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference |
 | `Position` | Genomic coordinate of the variant |
 | `Ref` | Reference base found in the genome |
@@ -388,6 +389,7 @@ VarScan (.snp.varscan)
 
 Mutect2 (.snp.mutect.tab)
 | Column | Description | Notes |
+|---|---|---|
 | `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference | |
 | `Position` | Genomic coordinate of the variant | |
 | `Ref` | Reference base found in the genome | |
@@ -398,6 +400,7 @@ Mutect2 (.snp.mutect.tab)
 
 DR.snp.final
 | Column | Description | 
+|---|---|
 | `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference | 
 | `Position` | Genomic coordinate of the variant | 
 | `Ref` | Reference base found in the genome | 
@@ -414,6 +417,7 @@ DR.snp.final
 
 .EPI.snp.final.annoF and .snp.minos
 | Column | Description | Notes |
+|---|---|---|
 | `Chrom` | Chromosome name. Usually MTB_anc if the ancestor is considered as the reference | |
 | `Position` | Genomic coordinate of the variant | |
 | `Ref` | Reference base found in the genome | |
