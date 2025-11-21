@@ -189,7 +189,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
 
 
     #now produce the gVCF for accurate WT calling
-    print("\033[92m\nObtaining {}.gvcf\n\033[00m".format(prefix))
+    print("\033[92m\nObtaining {}.gvcf for WT calling\n\033[00m".format(prefix))
     cmd_Mutect2 = [gatk, "Mutect2",
                    "-R", reference, "-I", "{}.sort.bam".format(prefix),
                    "-O", "{}.gvcf".format(prefix), "-OVI", "false",
@@ -340,7 +340,7 @@ def mutect2_vcf_to_tab(prefix):
 
     # Start up new file
     with open(f"{prefix}.snp.mutect.tab", "w+") as output_mutect_tab:
-        output_mutect_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tTotal_reads\tVarAllele\n")
+        output_mutect_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_total\tVarAllele\n")
     
         # Now, we convert the Mutect2 lines to the new format and write them in the output file
         for line in lines_mutect:
