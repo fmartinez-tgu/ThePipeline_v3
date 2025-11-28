@@ -788,7 +788,6 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
         sorted_data_lines = df_sorted.astype(str).apply('\t'.join, axis=1).tolist()
         df_final = lines_preheader + sorted_data_lines
         
-
         output_file.write(header+"\n")
         output_file.write("\n".join(df_final))
 
