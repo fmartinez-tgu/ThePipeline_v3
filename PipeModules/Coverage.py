@@ -45,7 +45,7 @@ def CoverageCRAM(prefix, reference):
     genomeCoverageBed = programs["genomeCoverageBed"]
     samtools = programs["samtools"]
 
-    cramfile = "{}.sort.cram".format(prefix)
+    cramfile = "{}.cram".format(prefix)
     covfile = "{}.coverage".format(prefix)
     with open(covfile, "w") as outfh:
         view = sp.Popen([samtools, "view", "-b", cramfile], stdout=sp.PIPE)
@@ -94,7 +94,7 @@ def MeanCoverage(prefix, depth4cov):
             cov2 = covlist[m1]
             median_cov = (cov1 + cov2) / 2.0
         else:
-            m1 = len(covlist) / 2
+            m1 = len(covlist) // 2
             # not neccessary to sum 1 as the m1 +1 element is
             # accessed in fact with just m1
             median_cov = covlist[m1]

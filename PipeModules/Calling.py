@@ -725,7 +725,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
     with open("{}.final_sin_wt.vcf".format(prefix), "r+") as filtered_raw:
         lines = filtered_raw.readlines()
         lines_headers = [i.strip() for i in lines if "#" in i]
-        header = lines_headers[-1]
+        header = "".join([x for x in lines_headers if "#CHROM" in x])
         lines_preheader = lines_headers[:-1]
         lines_noheader = [i.strip() for i in lines if "#" not in i]
 
@@ -787,7 +787,9 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
         # Convert sorted DF to list of strings
         sorted_data_lines = df_sorted.astype(str).apply('\t'.join, axis=1).tolist()
         df_final = lines_preheader + sorted_data_lines
+        
 
+        output_file.write(header+"\n")
         output_file.write("\n".join(df_final))
 
     # Annotate complemented Minos VCF with  if H37Rv or MTB_anc reference is used

@@ -184,8 +184,16 @@ def DetectResistance(prefix):
         to_write = list(set(final_output))
         to_write = sorted(to_write, key=lambda x: int(x.split(",")[2]))
         
+        check = []
         for result in to_write:
             outfile.write(result)
+            pos_res = int(result.split(",")[2])
+            if pos_res >= 1254555 and pos_res <= 1254583:
+                check.append(str(pos_res))
+        if len(check) > 0: # If any position falls within the overlap, we issue a warning
+            outfile.write(f"\n\nWARNING: {','.join(check)} position(s) fall(s) within the overlap between Rv1129c promoter and Rv1130 gen. Check manually.")
+        
+        outfile.write("\n")
             
         ### SECTION 3: WARNINGS ###
         
@@ -215,8 +223,7 @@ def DetectResistance(prefix):
                         outfile.write("WARNING: Position " + str(position) + " from " + drugs[position][0] + " (associated with " + "/".join(antibiotics).lower() + " resistance) has low read depth and could not be considered." + "\n")
                     else:
                         outfile.write("WARNING: Position " + str(position) + " from " + drugs[position][0] + " (associated with " + "/".join(antibiotics).lower() + " resistance) is within a deletion and could not be considered." + "\n")
-        
-
+                    
         #closing comment, must be changed whenever a new WHO catalog version is released and implemented
         outfile.write("\n#Resistance report generated on " + datetime.datetime.now().strftime("%d/%m/%Y") + " using WHO catalog version 2023 (Feb 2024 revision).\n")
 
@@ -329,7 +336,7 @@ def CreateReport():
                 outfile.write(",".join(sample_output)+"\n")
         # Añadimos una leyenda
         outfile.write("\nCategory legend:\nR: Assoc w R\nRI: Assoc w R Interim\nU: Uncertain significance\n!: position within deletion or low cov, check .res file\nS: Susceptible\n#: Variant frequency < 10%\n")
-
+    
 
 def CorrectRes(prefix):
     import os
