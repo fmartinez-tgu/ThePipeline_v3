@@ -288,6 +288,13 @@ def allFASTAS(table, paths, threads, sample_list):
     pool.close()
     pool.join()
 
+    if len(problematic_files) > 0:
+        print("\033[93mWARNING: The following samples could not be processed"
+              " due to errors when loading their files:\n")
+        for pf in problematic_files:
+            print(f"- {pf}")
+        print("\nPlease check that all necessary files are present and correctly formatted.\033[0m")
+
 
 
 
