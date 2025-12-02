@@ -263,6 +263,7 @@ def allFASTAS(table, paths, threads, sample_list):
     import glob
     import multiprocessing as mp
 
+    global problematic_files
     problematic_files = [] # this list will store any file that raises an error when imported. This sample will be skipped and written in a final report
 
     # set the number of cores to use
@@ -286,6 +287,8 @@ def allFASTAS(table, paths, threads, sample_list):
         task.get()
     pool.close()
     pool.join()
+
+
 
 
 def generateFASTA(table, prefix, problematic_files_list):
