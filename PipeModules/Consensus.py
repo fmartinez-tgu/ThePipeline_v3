@@ -262,12 +262,14 @@ def allFASTAS(table, paths, threads, sample_list):
     in the analysis folders. Paralelized'''
     import glob
     import multiprocessing as mp
-
-    global problematic_files
-    problematic_files = [] # this list will store any file that raises an error when imported. This sample will be skipped and written in a final report
+    from functools import partial
+    import os
 
     # set the number of cores to use
     pool = mp.Pool(threads)
+
+    with open("problematic_files.txt", "w") as pf:
+        pf.write("List of problematic files during consensus fasta generation:\n")
 
     if sample_list:
         prefixes = [x for x in paths]
@@ -282,23 +284,21 @@ def allFASTAS(table, paths, threads, sample_list):
 
             # run in parallel for each folder
             tasks = [pool.apply_async(generateFASTA,
-                            args=(table, prefix, problematic_files)) for prefix in prefixes]
+                            args=(table, prefix)) for prefix in prefixes]
     for task in tasks:
         task.get()
     pool.close()
     pool.join()
 
-    if len(problematic_files) > 0:
-        print("\033[93mWARNING: The following samples could not be processed"
-              " due to errors when loading their files:\n")
-        for pf in problematic_files:
-            print(f"- {pf}")
-        print("\nPlease check that all necessary files are present and correctly formatted.\033[0m")
+
+    with open("problematic_files.txt", "r") as pf:
+        lines = pf.readlines()
+        if len(lines) == 1:
+            os.remove("problematic_files.txt")
 
 
 
-
-def generateFASTA(table, prefix, problematic_files_list):
+def generateFASTA(table, prefix):
     import pandas as pd
     '''Generate the consensus fasta of a sample'''
     from .Calling import VCFtoPandas
@@ -310,42 +310,48 @@ def generateFASTA(table, prefix, problematic_files_list):
     try:
         wt_file = pd.read_csv("{}.wt".format(prefix), sep="\t")
     except Exception as e:
-        problematic_files_list.append(prefix)
+        with open("problematic_files.txt", "a") as pf:
+            pf.write(f"{prefix}.wt\n")
         print(f"Error loading {prefix}.wt: {e}")
         return
     
     try:
         indel_file = VCFtoPandas("{}.indel.vcf".format(prefix))
     except Exception as e:
-        problematic_files_list.append(prefix)
+        with open("problematic_files.txt", "a") as pf:
+            pf.write(f"{prefix}.indel.vcf\n")
         print(f"Error loading {prefix}.indel.vcf: {e}")
         return
     
     try:
         snp_file = pd.read_csv("{}.snp.minos".format(prefix), sep="\t", header=0)
     except Exception as e:
-        problematic_files_list.append(prefix)
+        with open("problematic_files.txt", "a") as pf:
+            pf.write(f"{prefix}.snp.minos\n")
         print(f"Error loading {prefix}.snp.minos: {e}")
         return
     
     try:
         lowcov_file = pd.read_csv("{}.lowcov".format(prefix), sep="\t", header=0)
     except Exception as e:
-        problematic_files_list.append(prefix)
+        with open("problematic_files.txt", "a") as pf:
+            pf.write(f"{prefix}.lowcov\n")
         print(f"Error loading {prefix}.lowcov: {e}")
         return
     
     try:
         varscan_file = pd.read_csv("{}.snp.varscan".format(prefix), sep="\t", header=0)
     except Exception as e:
-        problematic_files_list.append(prefix)
+        with open("problematic_files.txt", "a") as pf:
+            pf.write(f"{prefix}.snp.varscan\n")
         print(f"Error loading {prefix}.snp.varscan: {e}")
         return
     
     try:
         mutect_file = pd.read_csv("{}.snp.mutect.tab".format(prefix), sep="\t", header=0)
     except Exception as e:
-        problematic_files_list.append(prefix)
+        with open("problematic_files.txt", "a") as pf:
+            pf.write(f"{prefix}.snp.mutect.tab\n")
         print(f"Error loading {prefix}.snp.mutect.tab: {e}")
         return
 
@@ -652,4 +658,5 @@ def Consensus(args):
         prefixes = [x for x in paths]
         for prefix_to_remove in prefixes:
             sp.run("rm {}.fas".format(prefix_to_remove),shell=True,capture_output=True)
+
 
