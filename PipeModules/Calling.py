@@ -267,7 +267,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     cov_info = pandas.read_csv("{}.coverage".format(prefix),
                                sep='\t')
     cov_info.columns = ['CHROM', 'POS', 'COV']
-    cov_info[cov_info['COV'] < float(min_depth)
+    cov_info[cov_info['COV'] < float(min_depth) # <= 10?
              ]['POS'].to_csv("{}.lowcov.tsv".format(prefix),
                              sep='\n',
                              index=False)

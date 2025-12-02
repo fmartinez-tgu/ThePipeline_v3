@@ -263,6 +263,8 @@ def allFASTAS(table, paths, threads, sample_list):
     import glob
     import multiprocessing as mp
 
+    problematic_files = [] # this list will store any file that raises an error when imported. This sample will be skipped and written in a final report
+
     # set the number of cores to use
     pool = mp.Pool(threads)
 
@@ -279,14 +281,14 @@ def allFASTAS(table, paths, threads, sample_list):
 
             # run in parallel for each folder
             tasks = [pool.apply_async(generateFASTA,
-                            args=(table, prefix)) for prefix in prefixes]
+                            args=(table, prefix, problematic_files)) for prefix in prefixes]
     for task in tasks:
         task.get()
     pool.close()
     pool.join()
 
 
-def generateFASTA(table, prefix):
+def generateFASTA(table, prefix, problematic_files_list):
     import pandas as pd
     '''Generate the consensus fasta of a sample'''
     from .Calling import VCFtoPandas
@@ -295,12 +297,48 @@ def generateFASTA(table, prefix):
     pos = table['Position'].to_list()
 
     # load wt.txt, .snp.vcf, .indel.vcf, .snp.varscan and .snp.mutect.tab files
-    wt_file = pd.read_csv("{}.wt".format(prefix), sep="\t")
-    indel_file = VCFtoPandas("{}.indel.vcf".format(prefix))
-    snp_file = pd.read_csv("{}.snp.minos".format(prefix), sep="\t", header=0)
-    lowcov_file = pd.read_csv("{}.lowcov".format(prefix), sep="\t", header=0)
-    varscan_file = pd.read_csv("{}.snp.varscan".format(prefix), sep = "\t", header=0)
-    mutect_file = VCFtoPandas("{}.snp.mutect.tab".format(prefix))
+    try:
+        wt_file = pd.read_csv("{}.wt".format(prefix), sep="\t")
+    except Exception as e:
+        problematic_files_list.append(prefix)
+        print(f"Error loading {prefix}.wt: {e}")
+        return
+    
+    try:
+        indel_file = VCFtoPandas("{}.indel.vcf".format(prefix))
+    except Exception as e:
+        problematic_files_list.append(prefix)
+        print(f"Error loading {prefix}.indel.vcf: {e}")
+        return
+    
+    try:
+        snp_file = pd.read_csv("{}.snp.minos".format(prefix), sep="\t", header=0)
+    except Exception as e:
+        problematic_files_list.append(prefix)
+        print(f"Error loading {prefix}.snp.minos: {e}")
+        return
+    
+    try:
+        lowcov_file = pd.read_csv("{}.lowcov".format(prefix), sep="\t", header=0)
+    except Exception as e:
+        problematic_files_list.append(prefix)
+        print(f"Error loading {prefix}.lowcov: {e}")
+        return
+    
+    try:
+        varscan_file = pd.read_csv("{}.snp.varscan".format(prefix), sep="\t", header=0)
+    except Exception as e:
+        problematic_files_list.append(prefix)
+        print(f"Error loading {prefix}.snp.varscan: {e}")
+        return
+    
+    try:
+        mutect_file = pd.read_csv("{}.snp.mutect.tab".format(prefix), sep="\t", header=0)
+    except Exception as e:
+        problematic_files_list.append(prefix)
+        print(f"Error loading {prefix}.snp.mutect.tab: {e}")
+        return
+
 
     # keep only deletions (>1 in REF)
     # and add a new colum with the range of the deletion
