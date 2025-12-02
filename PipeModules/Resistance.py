@@ -191,7 +191,7 @@ def DetectResistance(prefix):
             if pos_res >= 1254555 and pos_res <= 1254583:
                 check.append(str(pos_res))
         if len(check) > 0: # If any position falls within the overlap, we issue a warning
-            outfile.write(f"\n\nWARNING: {','.join(check)} position(s) fall(s) within the overlap between Rv1129c promoter and Rv1130 gen. Check manually.")
+            outfile.write(f"\n\nWARNING: {','.join(check)} position(s) fall(s) within the overlap between Rv1129c promoter and Rv1130 gene. Check manually.")
         
         outfile.write("\n")
             
