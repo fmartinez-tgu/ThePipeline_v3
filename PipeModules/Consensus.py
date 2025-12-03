@@ -190,7 +190,11 @@ def generateSNPtable(paths, outfile, sample_list, threads):
 
     
     # Later, join in a single pandas dataframe
-    vcf_files = VCFtoPandas('positions_total')
+    try:
+        vcf_files = VCFtoPandas('positions_total')
+    except Exception as e:
+        sys.exit("\033[91mERROR: Something went wrong when"
+                 " reading the positions_total file. Check all annoF files are correct.\033[0m")
     vcf_files.sort_values('POS', inplace=True)
     vcf_files.drop_duplicates(subset=["POS", "ALT"], inplace=True)
     sp.run("rm positions_total", shell=True)
@@ -218,19 +222,22 @@ def generateSNPtable(paths, outfile, sample_list, threads):
     sp.run("sort --parallel={} -k2,2n -k5,5 snpeff_concat | awk '!seen[$2,$5]++' >>"
            " snpeff_concat_deduplicated".format(threads), shell=True)
 
-    snpeff_df = pd.read_csv("snpeff_concat_deduplicated", sep="\t", comment='#', header=0, dtype={
-    "CHROM": "string",
-    "POS": "int32",
-    "ID": "string",
-    "REF": "string",
-    "ALT": "string",
-    "QUAL": "string",
-    "FILTER": "string",
-    "INFO": "string",
-    "FORMAT": "string",
-    "SAMPLE": "string"
-    })
-    
+    try:
+        snpeff_df = pd.read_csv("snpeff_concat_deduplicated", sep="\t", comment='#', header=0, dtype={
+        "CHROM": "string",
+        "POS": "int32",
+        "ID": "string",
+        "REF": "string",
+        "ALT": "string",
+        "QUAL": "string",
+        "FILTER": "string",
+        "INFO": "string",
+        "FORMAT": "string",
+        "SAMPLE": "string"
+        })
+    except Exception as e:
+        sys.exit("\033[91mERROR: Something went wrong when"
+                 " reading the snpeff_concat_deduplicated file. Check all SnpEff files are correct.\033[0m")
     
     import multiprocessing as mp
     from functools import partial
@@ -308,7 +315,7 @@ def generateFASTA(table, prefix):
 
     # load wt.txt, .snp.vcf, .indel.vcf, .snp.varscan and .snp.mutect.tab files
     try:
-        wt_file = pd.read_csv("{}.wt".format(prefix), sep="\t")
+        wt_file = pd.read_csv("{}.wt".format(prefix), sep="\t", header = 0)
     except Exception as e:
         with open("problematic_files.txt", "a") as pf:
             pf.write(f"{prefix}.wt\n")
