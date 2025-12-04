@@ -277,9 +277,6 @@ def allFASTAS(table, paths, threads, sample_list):
 
     with open("problematic_files.txt", "w") as pf:
         pf.write("List of problematic files during consensus fasta generation:\n")
-    
-    with open("individual_fastas_log.txt", "w") as logf:
-        logf.write("Individual FASTA files generated:\n")
 
     if sample_list:
         prefixes = [x for x in paths]
@@ -418,9 +415,6 @@ def generateFASTA(table, prefix):
 
     # write FASTA
     write_fasta(''.join(fasta_seq), prefix)
-
-    with open("individual_fastas_log.txt", "a") as logf:
-        logf.write(f"{prefix}.fas\n")
 
 
 def write_fasta(seq, id, wrap=80):
@@ -583,6 +577,10 @@ def Consensus(args):
 
     snpsites = "/data/ThePipeline_v3/Programs/snp-sites/src/snp-sites"
 
+    # Folder to store individual fasta files given any error during the script. If the multifasta is created successfully,
+    # this folder is removed. Otherwise, it remains for debugging purposes.
+    sp.run("mkdir ztemp_individual_fastas", shell=True, capture_output=True)
+
     # Check if the input is a list or a path
     if args.sample_list:
         with open(args.paths[0], "r+") as input_file:
@@ -630,13 +628,13 @@ def Consensus(args):
     except Exception as e:
         print(e)
         for folder in paths:
-            sp.run("rm {}/*.fas".format(folder),
+            sp.run("mv {}/*.fas ztemp_individual_fastas".format(folder),
                 shell=True, capture_output=True)
 
         if args.sample_list:
             prefixes = [x for x in paths]
             for prefix_to_remove in prefixes:
-                sp.run("rm {}.fas".format(prefix_to_remove),shell=True,capture_output=True)
+                sp.run("mv {}.fas ztemp_individual_fastas".format(prefix_to_remove),shell=True,capture_output=True)
 
         sys.exit("\033[91mERROR: Something went wrong when"
                  " generating the individual FASTAs"
@@ -649,17 +647,16 @@ def Consensus(args):
 
     except:
         for folder in paths:
-            sp.run("rm {}/*.fas".format(folder),
+            sp.run("mv {}/*.fas ztemp_individual_fastas".format(folder),
                 shell=True, capture_output=True)
 
         if args.sample_list:
             prefixes = [x for x in paths]
             for prefix_to_remove in prefixes:
-                sp.run("rm {}.fas".format(prefix_to_remove),shell=True,capture_output=True)
+                sp.run("mv {}.fas ztemp_individual_fastas".format(prefix_to_remove),shell=True,capture_output=True)
         sys.exit("\033[91mERROR: Something went wrong when"
                  " performing the snp-sites step.\033[0m")
 
-    sp.run("rm *.fas", shell=True, capture_output=True)
 
     # Remove individual fasta files
 
@@ -671,5 +668,7 @@ def Consensus(args):
         prefixes = [x for x in paths]
         for prefix_to_remove in prefixes:
             sp.run("rm {}.fas".format(prefix_to_remove),shell=True,capture_output=True)
+    
+    sp.run("rm -r ztemp_individual_fastas", shell=True, capture_output=True)
 
 
