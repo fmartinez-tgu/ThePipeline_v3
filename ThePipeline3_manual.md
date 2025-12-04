@@ -497,6 +497,8 @@ CONSENSUS (PipeModules/Consensus.py)
 - `positions_total` and `snpeff_concat` — temporary concatenations used to build the SNP table (deleted later)
 - `{outfile}.SNP_table.txt` — consolidated non-redundant SNP table with annotation and gene-level information (final)
 - Per-sample `{prefix}.fas` consensus FASTA files (created per sample while generating individual FASTAs), then concatenated into `{outfile}.mf.fasta`, gapped version `{outfile}.mf_gap.fasta`, snp-sites FASTA `{outfile}.mf_gap.snp-sites.fasta` and a derived SNP table without variants associated with resistance `{outfile}.SNP_table.snp-sites.no-resis.txt`.
+- `problematic_files.txt` — If any sample contains a trunkated or corrupted file, it will be skipped and the ID will be saved in this file
+- `individual_fastas_log.txt` — Record of the individual fastas generated during the consensus. For debugging purposes only.
 
 **Cleanup**
 - Individual per-sample `.fas` files are removed after multi-FASTA generation.

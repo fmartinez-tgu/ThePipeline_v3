@@ -277,6 +277,9 @@ def allFASTAS(table, paths, threads, sample_list):
 
     with open("problematic_files.txt", "w") as pf:
         pf.write("List of problematic files during consensus fasta generation:\n")
+    
+    with open("individual_fastas_log.txt", "w") as logf:
+        logf.write("Individual FASTA files generated:\n")
 
     if sample_list:
         prefixes = [x for x in paths]
@@ -415,6 +418,9 @@ def generateFASTA(table, prefix):
 
     # write FASTA
     write_fasta(''.join(fasta_seq), prefix)
+
+    with open("individual_fastas_log.txt", "a") as logf:
+        logf.write(f"{prefix}.fas\n")
 
 
 def write_fasta(seq, id, wrap=80):
