@@ -556,6 +556,20 @@ def multifastas(table, outfile, snpsites, paths, sample_list):
         f.write("##A,C,G,T\n")
         f.write("{},{},{},{}\n".format(A, C, G, T))
     f.close()
+
+    # Calculate the invariants but considering a reference size without the masked regions
+    A = 724576 - table_snpsites_nr[table_snpsites_nr['WT'] == 'A'].shape[0]
+    G = 1367600 - table_snpsites_nr[table_snpsites_nr['WT'] == 'G'].shape[0]
+    T = 725052 - table_snpsites_nr[table_snpsites_nr['WT'] == 'T'].shape[0]
+    C = 1373340 - table_snpsites_nr[table_snpsites_nr['WT'] == 'C'].shape[0]
+
+    # write to file
+    with open('{}_invariants_annoF.txt'.format(outfile), 'w') as f:
+        f.write("##Number of non-masked invariant sites for "
+                "{}.mf_gap.snp-sites.no-resis.fasta\n".format(outfile))
+        f.write("##A,C,G,T\n")
+        f.write("{},{},{},{}\n".format(A, C, G, T))
+    f.close()
     
     # Remove the temporary VCF file made with snp-sites
     sp.run("rm {0}_temp.mf_gap.SNP_table.txt".format(outfile), shell=True, capture_output=True)
