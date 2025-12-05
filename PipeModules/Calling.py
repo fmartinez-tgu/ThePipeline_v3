@@ -1479,4 +1479,6 @@ def Calling(args):
             os.remove("{}.sort.bam".format(args.prefix))
             os.remove("{}.sort.bam.bai".format(args.prefix))
     
+    os.remove("MTB_ancestor_reference.fasta")
+    
     return 0
