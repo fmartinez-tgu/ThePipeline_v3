@@ -328,29 +328,56 @@ def annoF_varscan_mutect(prefix):
     sp.run([f"echo Annotation filtering performed on {prefix} VarScan and Mutect2 output files >> {prefix}.history"],shell=True, universal_newlines=True)
 
 def mutect2_vcf_to_tab(prefix):
-
     import subprocess as sp
-    '''Convert Mutect2 VCF output to tab file for easier visualization. Original VCF will be removed unless -kmvcf parameter is used'''
-    # Import Mutect2 VCF file
+    '''Convert Mutect2 VCF output to tab file for easier visualization. 
+       Original VCF will be removed unless -kmvcf parameter is used'''
     
-    with open(f"{prefix}.snp.mutect", "r+") as mutect_file:
-        lines_mutect = mutect_file.readlines()
+    try:
+        with open(f"{prefix}.snp.mutect", "r") as mutect_file, \
+             open(f"{prefix}.snp.mutect.tab", "w+") as output_mutect_tab:
+            
+            # Write the header first
+            output_mutect_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_total\tVarAllele\n")
+            
+            # Iterate line by line (Memory Efficient)
+            for line in mutect_file:
+                if '#' in line:
+                    continue # Skip headers
+                
+                try:
+                    tokens = line.strip().split("\t")
+                    # Ensure the line has enough columns to avoid IndexErrors on malformed lines
+                    if len(tokens) < 10:
+                        continue
 
-    lines_mutect = [x for x in lines_mutect if '#' not in x] # Remove all headers
+                    # Extract the format field (column 9) to parse
+                    format_field = tokens[9]
+                    
+                    # Logic to parse the specific Mutect2 format
+                    # GT:AD:AF:DP:F1R2:F2R1:FAD:SB
+                    format_parts = format_field.split(":")
+                    
+                    # Safety check: ensure AF (Allele Freq) exists at index 2
+                    if len(format_parts) > 2:
+                        varfreq = str(round(float(format_parts[2]) * 100, 2))
+                        
+                        # Safety check: ensure DP (Depth) exists at index 3
+                        if len(format_parts) > 3:
+                            cov_allele = format_parts[3]
+                            
+                            new_line = [tokens[0], tokens[1], tokens[3], tokens[4], varfreq, cov_allele, tokens[4]]
+                            output_mutect_tab.write(("\t").join(new_line) + "\n")
+                            
+                except (ValueError, IndexError) as e:
+                    # If a specific line is malformed, skip it but don't crash the pipeline
+                    print(f"\033[93mWARNING: Skipping malformed line in {prefix}: {line.strip()}\033[0m")
+                    continue
 
-    # Start up new file
-    with open(f"{prefix}.snp.mutect.tab", "w+") as output_mutect_tab:
-        output_mutect_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_total\tVarAllele\n")
-    
-        # Now, we convert the Mutect2 lines to the new format and write them in the output file
-        for line in lines_mutect:
-            tokens = line.split("\t")
-            varfreq = str(round(float(tokens[9].split(":")[2])*100,2)) # Save the variant frequency 
-            cov_allele = tokens[9].split(":")[3] # Save the depth of both ref and cons alleles
-            new_line = [tokens[0],tokens[1],tokens[3],tokens[4],varfreq,cov_allele,tokens[4]] # Line that will be added to the file
-            output_mutect_tab.write(("\t").join(new_line)+"\n")
-    
-    sp.run([f"echo {prefix} Mutect2 VCF final file converted to TAB format  >> {prefix}.history"],shell=True, universal_newlines=True)
+        sp.run([f"echo {prefix} Mutect2 VCF final file converted to TAB format  >> {prefix}.history"], 
+               shell=True, universal_newlines=True)
+
+    except FileNotFoundError:
+        print(f"\033[91mERROR: {prefix}.snp.mutect not found. Conversion failed.\033[0m")
 
 
 
