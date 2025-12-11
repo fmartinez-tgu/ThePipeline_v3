@@ -499,7 +499,7 @@ def multifastas(table, outfile, snpsites, paths, sample_list):
         for file, length in lengths.items():
             if length != fasta_length:
                 print(f"\033[93m{file} (length: {length})\033[00m")
-                sp.run("mv {}.fas ztemp_individual_fastas".format(file), shell=True, capture_output=True)
+                sp.run("mv {} ztemp_individual_fastas".format(file), shell=True, capture_output=True)
         print("\033[93mThe problematic fastas have been moved to the ztemp_individual_fastas folder.\033[00m")
         print("\033[93mProceeding to generate multifasta with the remaining fastas.\033[00m")
 
@@ -717,6 +717,8 @@ def Consensus(args):
         for prefix_to_remove in prefixes:
             sp.run("rm {}.fas".format(prefix_to_remove),shell=True,capture_output=True)
     
-    sp.run("rm -r ztemp_individual_fastas", shell=True, capture_output=True)
+    if not os.listdir("ztemp_individual_fastas"):
+    # The list of contents is empty, so we can remove it
+        sp.run("rm -r ztemp_individual_fastas", shell=True, capture_output=True)
 
 
