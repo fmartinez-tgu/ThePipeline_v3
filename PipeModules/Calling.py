@@ -781,12 +781,12 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
 
         if position not in minos_positions:
             # Check if the position has only one variant in both callers
-            variants_varscan = varscan_file[varscan_file['Position'] == position]['VarAllele'].tolist()
+            variants_varscan = [s.replace("+", "") for s in varscan_file[varscan_file['Position'] == position]['VarAllele'].tolist()]
             variants_mutect = mutect_file[mutect_file['POS'] == position]['ALT'].tolist()
 
             # If there's only one possible variant in both callers, and it's the same in both callers, we add it to Minos
             if len(variants_varscan) == 1 and len(variants_mutect) == 1 and variants_varscan[0] == variants_mutect[0]:
-                to_add = [ref_ID[0],str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0],varscan_file[varscan_file['Position'] == position]['VarAllele'].iloc[0],".",".","VarScan_Mutect2",".","."]
+                to_add = [ref_ID[0],str(position), ".", varscan_file[varscan_file['Position'] == position]['Ref'].iloc[0].replace("+",""),varscan_file[varscan_file['Position'] == position]['VarAllele'].iloc[0],".",".","VarScan_Mutect2",".","."]
                 lines_noheader.append("\t".join(to_add))
             
             # If there's only one possible variant in both callers, but they are different, we add both variants as multiallelic position
