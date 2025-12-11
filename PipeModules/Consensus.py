@@ -470,6 +470,40 @@ def multifastas(table, outfile, snpsites, paths, sample_list):
     import pandas
     import io
 
+    # First, we check whether all the fastas have the same length. If not, we move the problematic fastas to a separate folder
+    # and proceed with the remaining fastas to generate the multifasta
+    
+    fasta_length = table.shape[0] # number of positions in the SNP table, which equals the desired length of each fasta
+
+    lengths = {}
+    if sample_list:
+        for file in paths:
+            with open("{}.fas".format(file), "r") as f:
+                lines = f.readlines()
+                seq = ''.join([line.strip() for line in lines if not line.startswith('>')])
+                lengths[file] = len(seq)
+    else:
+        for folder in paths:
+            fasta_files = sp.run("ls {}/*.fas".format(folder),
+                                shell=True, capture_output=True).stdout.decode().strip().split('\n')
+            for file in fasta_files:
+                with open(file, "r") as f:
+                    lines = f.readlines()
+                    seq = ''.join([line.strip() for line in lines if not line.startswith('>')])
+                    lengths[file] = len(seq)
+    
+    # Check if all lengths are the same. If not, move the problematic files to a separate folder
+    unique_lengths = set(lengths.values())
+    if len(unique_lengths) > 1:
+        print("\033[93mWARNING: Not all fastas have the same length. Problematic fastas:\033[00m")
+        for file, length in lengths.items():
+            if length != fasta_length:
+                print(f"\033[93m{file} (length: {length})\033[00m")
+                sp.run("mv {}.fas ztemp_individual_fastas".format(file), shell=True, capture_output=True)
+        print("\033[93mThe problematic fastas have been moved to the ztemp_individual_fastas folder.\033[00m")
+        print("\033[93mProceeding to generate multifasta with the remaining fastas.\033[00m")
+
+
     # First, generate the multifasta file
 
     if sample_list:

@@ -434,7 +434,7 @@ def RunSubcommand(args):
     elif args.subcommand == "calling":
         from PipeModules.Calling import Calling
         import locale
-        locale.setlocale(locale.LC_ALL, "en_US.UTF-8")
+        locale.setlocale(locale.LC_ALL, "en_GB.utf8")
         Calling(args)
 
     elif args.subcommand == "annotation_filter":
