@@ -13,6 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with ThePipeline3.  If not, see <http://www.gnu.org/licenses/>.
 
+from zipfile import Path
+
+
 def CoverageBAM(prefix, reference):
     ''' Calculate coverage '''
     from subprocess import call
@@ -147,19 +150,25 @@ def FiltByCov(prefix, mean, median, cov, minmean, minmedian, mincov):
 def CalcCoverage(args):
 
     from .Repository import Data
+    import os
 
     data = Data()
 
     if not args.reference:
         args.reference = data["reference"]
 
-    if args.extension == "bam":
-        # Calc coverage given a sort.bam or sort.cram
-        CoverageBAM(args.prefix, args.reference)
-    elif args.extension == "cram":
-        CoverageCRAM(args.prefix, args.reference)
-    else:
-        assert False, "BAM or CRAM extension must be specified."
+    # Let's check if prefix.coverage is already present, since it's called in the Calling module
+
+    file_path_coverage = f"{args.prefix}.coverage"
+
+    if not os.path.isfile(file_path_coverage):
+        if args.extension == "bam":
+            # Calc coverage given a sort.bam or sort.cram
+            CoverageBAM(args.prefix, args.reference)
+        elif args.extension == "cram":
+            CoverageCRAM(args.prefix, args.reference)
+        else:
+            assert False, "BAM or CRAM extension must be specified."
 
     # Create the .meancov file and get its values
     mean, median, cov = MeanSampleCoverage(args.prefix, args.keepcoverage,

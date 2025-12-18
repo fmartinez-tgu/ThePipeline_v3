@@ -253,15 +253,22 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
 
     # CALCULATE LOWCOV FROM COVERAGE
     # Calculate coverage
-    with open("{}.coverage".format(prefix), "w") as outfh:
-        cmd_cov = [genomeCoverageBed, "-ibam", "{}.sort.bam".format(prefix),
-                   "-d", "-g", reference]
-        stat = sp.call(cmd_cov, stdout=outfh)
-    if stat != 0:
-        sys.exit("\033[91mPIPELINE ERROR at sample {}: Pipeline stopped when"
-                 " calculating BAM coverage!\n\033[0m".format(prefix))
-    outfh.close()
-    UpdateHistory(cmd_cov, "bedtools", prefix)
+
+    # First we check if prefix.coverage is already present, since it's also calcultated in the coverage module. If present, we skip this step
+
+    file_path_coverage = f"{prefix}.coverage"
+
+    if not os.path.isfile(file_path_coverage):
+
+        with open("{}.coverage".format(prefix), "w") as outfh:
+            cmd_cov = [genomeCoverageBed, "-ibam", "{}.sort.bam".format(prefix),
+                    "-d", "-g", reference]
+            stat = sp.call(cmd_cov, stdout=outfh)
+        if stat != 0:
+            sys.exit("\033[91mPIPELINE ERROR at sample {}: Pipeline stopped when"
+                    " calculating BAM coverage!\n\033[0m".format(prefix))
+        outfh.close()
+        UpdateHistory(cmd_cov, "bedtools", prefix)
 
     # lowcov will be all bases bellow min_depth cut-off
     cov_info = pandas.read_csv("{}.coverage".format(prefix),
