@@ -87,7 +87,8 @@ FASTCLEAN (PipeModules/FastClean.py)
 | Parameter | Description | Default | Notes |
 |---|---|---:|---|
 | `-f`, `--fastq` | One or two input FASTQ file paths. One file = single-end, two files = paired-end. | (required) | `nargs="*"` in parser; required for fastclean. |
-| `-c`, `--config` | Path to a fastp config file (one parameter per line). | `default_config` | If `default_config`, reads `data/Configs/fastp_default.config`. Default values are: --cut_tail, --cut_window_size=10, --cut_mean_quality=20, --length_required=50, --correction|
+| `-c`, `--config` | Path to a fastp config file (one parameter per line). | `default_config` | If `default_config`, reads `data/Configs/fastp_default.config`. 
+Default values are: --cut_tail, --cut_window_size=10, --cut_mean_quality=20, --length_required=50, --correction|
 | `-t`, `--threads` | Number of threads passed to fastp. | `1` | Up to 16 threads. |
 | `-v`, `--verbose` | Print the fastp command before running. | (flag) | No value; present/absent. |
 | `--phred64` | Treat input as Phred+64 (convert to Phred+33). | (flag) | Adds `--phred64` to fastp when set. |
