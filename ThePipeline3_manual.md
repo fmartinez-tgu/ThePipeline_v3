@@ -562,7 +562,7 @@ ThePipeline3 typing
 DISTANCES (PipeModules/Distances.py)
 -----------------------------------
 **Purpose**
-- Calculate pairwise genetic distances.
+- Calculate all vs all pairwise genetic distances.
 
 **CLI parameters (driver `distances` parser):**
 
