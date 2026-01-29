@@ -136,13 +136,13 @@ def FiltByCov(prefix, mean, median, cov, minmean, minmedian, mincov):
     if mean < minmean or median < minmedian or cov < mincov:
         # Create NoPassCov if it does not exist
         try:
-            os.mkdir("NoPassCov")
+            os.mkdir("zNoPassCov")
         except OSError:
             pass
 
         files = glob("{}*".format(prefix))
         for file in files:
-            shutil.move(file, "./NoPassCov/{}".format(file))
+            shutil.move(file, "./zNoPassCov/{}".format(file))
 
     return 0
 
