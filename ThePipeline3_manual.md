@@ -173,7 +173,7 @@ Outputs: `sample_A.P1.filtered.fastq.gz`, `sample_A.P2.filtered.fastq.gz`, `samp
 MAPPING (PipeModules/Mapping.py)
 ---------------------------------
 **Purpose**
-- Map reads to a reference with `bwa mem`, filter by mapQ, sort and (optionally) remove duplicates with Picard, hardclip reads with `samclip_h`, run QualiMap for QC and optionally convert to CRAM.
+- Map reads to a reference with `bwa mem`, filter by mapQ if cutoff provided, sort and (optionally) remove duplicates with Picard, hardclip reads with `samclip_h`, run QualiMap for QC and optionally convert to CRAM.
 
 **CLI parameters (as in `ThePipeline3`):**
 
