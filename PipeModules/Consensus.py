@@ -266,7 +266,7 @@ def generateSNPtable(paths, outfile, sample_list, threads):
 
 def allFASTAS(table, paths, threads, sample_list):
     '''Generate all consensus fasta of all the samples
-    in the analysis folders. Paralelized'''
+    in the analysis folders. Parallelized'''
     import glob
     import multiprocessing as mp
     from functools import partial
@@ -280,29 +280,31 @@ def allFASTAS(table, paths, threads, sample_list):
 
     if sample_list:
         prefixes = [x for x in paths]
+        # pool.map is blocking, so it waits for everything to finish here.
         pool.map(partial(generateFASTA, table), prefixes)
-
     else:
+        all_tasks = [] # Initialize a list to hold all async tasks
         for folder in paths:
-            # Only work with samples having annoF vcfs, as were the ones
-            # used to generate de SNP table
+            # Only work with samples having annoF vcfs
             annoF_files = glob.glob("{}/*.EPI.snp.final.annoF".format(folder))
             prefixes = [s.replace('.EPI.snp.final.annoF', '') for s in annoF_files]
 
-            # run in parallel for each folder
-            tasks = [pool.apply_async(generateFASTA,
-                            args=(table, prefix)) for prefix in prefixes]
-    for task in tasks:
-        task.get()
+            # Use extend to add tasks from every folder to the list
+            for prefix in prefixes:
+                t = pool.apply_async(generateFASTA, args=(table, prefix))
+                all_tasks.append(t)
+        
+        # Now wait for all tasks across all folders to complete
+        for task in all_tasks:
+            task.get()
+
     pool.close()
     pool.join()
-
 
     with open("problematic_files.txt", "r") as pf:
         lines = pf.readlines()
         if len(lines) == 1:
             os.remove("problematic_files.txt")
-
 
 
 def generateFASTA(table, prefix):
