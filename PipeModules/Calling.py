@@ -1386,6 +1386,11 @@ def Calling(args):
     print("\033[92m\nRunning VarScan on {}\n\033[00m".format(args.prefix))
     VarScan(reference, args.prefix, varscan, samtools, args.ext, ref_ID)
 
+    if args.dict_ref:
+        print("\033[92m\nCreating dictionary from reference {}\n\033[00m".format(args.reference))
+        ref_name = reference.replace(".fasta", "").replace(".fa", "")
+        sp.run([f"java -jar /data/ThePipeline_v3/Programs/picard/picard.jar CreateSequenceDictionary R={reference} O={ref_name}.dict"], shell=True, universal_newlines=True)
+
     # SNP calling with Mutect2
     print("\033[92m\nRunning Mutect2 on {}\n\033[00m".format(args.prefix))
     Mutect2(reference, args.prefix, gatk, samtools, genomeCoverageBed,

@@ -277,6 +277,7 @@ CALLING (PipeModules/Calling.py)
 | `-kmvcf`, `--keep_mutect2_vcf` | Keep Mutect2 intermediate VCF files. | (flag) | Controls whether Mutect2 VCFs are removed after their conversion to tabular format. |
 | `-kna`, `--keep_not_annof` | Keep not-filtered-by-annotation VarScan and Mutect2 files | (flag) | |
 | `-se`, `--single_end` | Indicate reads are single-end for Minos adjudication. | (flag) | Alters `Minos()` `--reads` invocation. |
+| `-dict`, `--create_dict_from_ref` | Create a .dict file from the reference genome usign GATK (needed for Mutect2). By default, it is assumed that the .dict file is already present in the folder | (flag) | 
 | `-min_d`, `--min_depth` | Minimum depth considered callable. | `3` | Passed to Mutect2 `--callable-depth` and used in filters. |
 | `-min_q`, `--min_qual` | Minimum base quality for callable positions. | `15` | Passed as Mutect2 `-mbq`. |
 | `-min_f`, `--min_freq` | Minimum allele frequency to consider an alternative. | `0.05` | Validated via `percentage_float`. |

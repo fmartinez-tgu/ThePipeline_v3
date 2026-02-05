@@ -244,6 +244,7 @@ def parse_args():
     callparser.add_argument("-kmvcf", "--keep_mutect2_vcf", dest="kmvcf", action="store_true", help="Keep the original VCF file output from Mutect2")
     callparser.add_argument("-kna", "--keep_not_annof", dest="keep_not_annof", action="store_true", help="Keep the original .snp.varscan and .snp.minos files before annotation filtering")
     callparser.add_argument("-se", "--single_end", dest="single_end", action="store_true", help="Add this argument for single-end sequences calling")
+    callparser.add_argument("-dict", "--create_dict_from_ref", dest="dict_ref", action="store_true", help="Create a .dict file from the reference genome usign GATK (needed for Mutect2). By default, it is assumed that the .dict file is already present in the folder")
     callparser.add_argument("-min_d", "--min_depth", dest="min_depth",
                             default="3", type=str,
                             help="Minimum depth to consider a position "
