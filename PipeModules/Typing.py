@@ -91,7 +91,7 @@ def Typing():
                             if lins[i] in exceptions:
                                 break
                             if ".".join(lins[i].split(".")[:-1]) != lins[i-1]:
-                                lins[deepest] = "WARNING (" + lins[i] + "/" + lins[i-1] + ")"
+                                lins[deepest] = "WARNING (" + lins[i] + "/" + lins[i-1] + ")" # If we have more than one possible lineage, but lineages don't add up to ~100% it's probably due to the SNP markers to be homoplastic (originally due to the small dataset these SNPs seemed lineage definers, but not anymore)
                     
                     outfile.write(filename.replace(".DR.snp.final","") + ",clonal," + lins[deepest] + "\n")
 
