@@ -544,7 +544,8 @@ ThePipeline3 resistance -r
 TYPING (PipeModules/Typing.py)
 ------------------------------
 **Purpose**
-- Infer MTBC lineage from each `{prefix}.DR.snp.final` by matching phylogenetic marker positions in `data/snp_phylo_fixed.tsv` and produce `lineage_typing.csv` listing Sample, Infection type (clonal/mixed/undetermined) and typing. **PLEASE NOTE:** some strains may have a "WARNING" next to the lineage. This indicates that the SNP or SNPs that define that lineage according to our list, may be homoplastic but was originally considered as lineage-defining. If the lineage is not clear, it's recommended to reconstruct a phylogeny and check the clade lineage where that sample is located.
+- Infer MTBC lineage from each `{prefix}.DR.snp.final` by matching phylogenetic marker positions in `data/snp_phylo_fixed.tsv` and produce `lineage_typing.csv` listing Sample, Infection type (clonal/mixed/undetermined) and typing. 
+**PLEASE NOTE:** some strains may have a "WARNING" next to the lineage. This indicates that the SNP or SNPs that define that lineage according to our list, may be homoplastic but was originally considered as lineage-defining. If the lineage is not clear, it's recommended to reconstruct a phylogeny and check the clade lineage where that sample is located.
 
 **Inputs**
 - `{prefix}.DR.snp.final` files found in working folder.
