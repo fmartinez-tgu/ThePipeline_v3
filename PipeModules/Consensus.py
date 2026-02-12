@@ -433,11 +433,14 @@ def write_fasta(seq, id, wrap=80):
     """
     import os
 
-    with open('{}.fas'.format(id), 'w') as f:
-        f.write('>{}\n'.format(os.path.basename(id)))
-        for i in range(0, len(seq), wrap):
-            f.write('{}\n'.format(seq[i:i + wrap]))
-    f.close()
+    """Write sequence as a single line to avoid concatenation issues."""
+    # Ensure seq is a string and remove any pre-existing newlines/whitespace
+    clean_seq = str(seq).replace('\n', '').replace('\r', '').strip()
+
+    filename = f"{id}.fas"
+    with open(filename, 'w') as f:
+        f.write(f">{os.path.basename(id)}\n")
+        f.write(f"{clean_seq}\n")
 
 
 def fasta_iter(fasta_name):
