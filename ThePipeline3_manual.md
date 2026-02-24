@@ -290,7 +290,7 @@ CALLING (PipeModules/Calling.py)
 
 **Required inputs**
 - `{prefix}{ext}` where `ext` matches `--extension` (e.g. `.sort.bam` or `.cram`) — mapping file produced by mapping module.
-- Only .gz files are admitted in this module. If FastQ files are uncompressed, it will raise an error. 
+- **Only fastq.gz files are admitted in this module**. If FastQ files are uncompressed, it will raise an error. 
 - `data/Paths/data_path` should provide default `reference` and other resources unless explicitly provided.
 - Programs required (from `Programs()`): varscan (VarScan jar), gatk (gatk executable), minos (Singularity image) and snpEff (jar), samtools, genomeCoverageBed (bedtools), snp-sites etc.
 
