@@ -571,6 +571,9 @@ def Minos(reference, minos, prefix, single_end):
     from subprocess import call
     from .History import UpdateHistory
     
+    if not os.path.isfile("{}.P1.filtered.fastq.gz".format(prefix)) or not os.path.isfile("{}.P2.filtered.fastq.gz".format(prefix)):
+        sys.exit("\033[91mPipeline stopped at Minos variant adjudication for sample {}: Minos requires compressed files as input. Please, compress the filtered files in .gz files\033[0m".format(prefix))
+
     if not single_end:
         cmd = ["singularity", "exec", "--bind", "/"+os.getcwd().split("/")[1],
             minos, "minos", "adjudicate", "--force",
