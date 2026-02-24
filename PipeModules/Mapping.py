@@ -166,6 +166,10 @@ def Mapping(args):
         sys.exit("\033[91mPIPELINE ERROR at sample {}:"
                  " Up to two fastq "
                  "files can be provided for mapping.\n\033[0m".format(args.prefix))
+    
+    if not os.path.isfile("{}.P1.filtered.fastq.gz".format(args.prefix)) or not os.path.isfile("{}.P2.filtered.fastq.gz".format(args.prefix)):
+        print("\033[91mCompress {} filtered fastq files before using the Calling module to avoid errors\033[0m".format(args.prefix))
+
     if args.cram_compress:
         cram_compress = True
     else:
