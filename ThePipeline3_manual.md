@@ -38,6 +38,7 @@ Short Dependencies
 - Python 3.7
 - Python packages: pandas, PyVCF (vcf), pairsnp (vendored in `data/libs/pairsnp-python/` but may be installed), and other stdlib modules.
 - System/bioinformatics tools (expected under `Programs/` by default and configurable from `data/Paths/programs_path`): bwa, samtools, picard (MarkDuplicates jar), fastp, seqtk, pigz, kraken (and kraken-report/translate), bedtools (genomeCoverageBed), gatk (Mutect2), varscan (jar), minos (Singularity image), snpEff (jar), snp-sites, qualimap, pigz, snp-sites, others. See `Programs/` in the repository for bundled binaries and `data/Configs/software_versions.txt` for recorded versions.
+- Calling takes **only** .filtered.fastq.gz files. If the file is uncompressed, the Calling will raise an error. 
 
 <a id="layout-and-configuration-files-imported-by-the-pipeline"></a>
 Layout and configuration files imported by the pipeline
@@ -289,6 +290,7 @@ CALLING (PipeModules/Calling.py)
 
 **Required inputs**
 - `{prefix}{ext}` where `ext` matches `--extension` (e.g. `.sort.bam` or `.cram`) — mapping file produced by mapping module.
+- Only .gz files are admitted in this module. If FastQ files are uncompressed, it will raise an error. 
 - `data/Paths/data_path` should provide default `reference` and other resources unless explicitly provided.
 - Programs required (from `Programs()`): varscan (VarScan jar), gatk (gatk executable), minos (Singularity image) and snpEff (jar), samtools, genomeCoverageBed (bedtools), snp-sites etc.
 
