@@ -13,9 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with ThePipeline3.  If not, see <http://www.gnu.org/licenses/>.
 
-from zipfile import Path
-
-
 def CoverageBAM(prefix, reference):
     ''' Calculate coverage '''
     from subprocess import call
