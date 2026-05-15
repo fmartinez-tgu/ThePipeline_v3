@@ -791,7 +791,6 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
                 try:
                     if any(f"{item}\t{pos_minos}\t" in line_varscan for item in ref_ID): 
                         ref_varscan, cons_varscan, depth_WT, depth_ALT = itemgetter(2,18,4,5)(line_varscan.strip().split("\t"))
-                        print(ref_varscan, cons_varscan, depth_WT, depth_ALT)
                         dic_variants[ref_varscan+cons_varscan][0].append(int(depth_WT)) # Save WT depth in the first list of the key
                         dic_variants[ref_varscan+cons_varscan][1].append(int(depth_ALT)) # Save ALT depth in the second list of the key
                 except KeyError: 
@@ -821,11 +820,9 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
                 return depths_to_write[0] # If there's only one variant, return the mean depth for WT and ALT separated by a comma
             
             elif len(dic_variants) > 1:
-                print(values)
                 mean_depths_WT = int(mean(values[0]))
                 mean_depths_ALT = int(mean(values[1]))
                 depths_to_write.append([str(mean_depths_WT), str(mean_depths_ALT)])
-        print("DEPTHS TO WRITE:", depths_to_write)
         return depths_to_write     
         
 
@@ -956,7 +953,6 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
             varfreq = get_freqs_from_varscan_and_mutect(position, ref_ID) # Get mean frequency from VarScan and Mutect2
             cov_total = get_depths_from_varscan_and_mutect(position, ref_ID) # Get mean depth from VarScan and Mutect2
             total_read_count = get_complete_depths_from_varscan_and_mutect(position, ref_ID) # Get mean depth for WT and ALT from VarScan and Mutect2
-            print(position, total_read_count)
             if len(cons.split(",")) == 1 and varfreq < 90: # If it's biallelic and the ALT freq is < 90%, we map to IUPAC code
                 code_iupac = find_key_with_elements(iupac, [ref, cons])
                 raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,code_iupac,varfreq,cov_total,cons,",".join(total_read_count)))
