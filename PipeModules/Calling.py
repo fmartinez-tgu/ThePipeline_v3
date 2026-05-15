@@ -15,6 +15,8 @@
 
 # Module for variant calling, using Varscan2, Mutect2 and Minos
 
+from fileinput import filename
+import os
 import vcf
 def check_extension(ext):
     '''Check if the extension is either BAM or CRAM'''
@@ -282,7 +284,7 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
 
 # Now we filter VarScan (both parsed and original) and Mutect2 outputs using the annotation filter
 
-def annoF_varscan_mutect(prefix):
+def annoF_varscan_mutect(prefix, snpannof):
 
     import os
     import subprocess as sp 
@@ -291,48 +293,82 @@ def annoF_varscan_mutect(prefix):
                         os.path.dirname(
                             os.path.abspath(__file__)))[0]))
 
-    # VarScan files
-    with open("{}.parsed.vcf_annoF".format(prefix), "w") as outfile:
-        with open("{}.parsed.vcf".format(prefix)) as infile:
-            lines_varscan = infile.readlines()
-            headers = [x.strip() for x in lines_varscan if "#" in x]
-            rest_of_file = [x.strip() for x in lines_varscan if "#" not in x]
-            outfile.write("\n".join(headers)+"\n")
-            for line in rest_of_file:
-                pos = line.strip().split("\t")[1]
-                if pos not in annotation:
-                        outfile.write(f"{line}\n")
-
-    with open("{}.snp_annoF".format(prefix), "w") as outfile:
-        with open("{}.snp".format(prefix)) as infile:
+    #DR annotation filter
+    with open("{}.DR.snp.final_annoF".format(prefix), "w") as outfile:
+        with open("{}.DR.snp.final".format(prefix)) as infile:
             header = infile.readline()
             outfile.write(header)
             for line in infile:
                 pos = line.strip().split("\t")[1]
                 if pos not in annotation:
                         outfile.write(line)
-
-    # Mutect2 file
-    with open("{}.snp.vcf_annoF".format(prefix), "w") as outfile:
-        with open("{}.snp.vcf".format(prefix)) as infile:
-            lines_mutect2 = infile.readlines()
-            headers = [x.strip() for x in lines_mutect2 if '#' in x]
-            rest_of_file = [x.strip() for x in lines_mutect2 if '#' not in x]
-            outfile.write("\n".join(headers)+"\n")
-            for line in rest_of_file:
+    
+    # Filtering EPI file
+    with open("{}.EPI.snp.final.annoF".format(prefix), "w") as outfile:
+        with open("{}.EPI.snp.final".format(prefix)) as infile:
+            header = infile.readline()
+            outfile.write(header)
+            for line in infile:
                 pos = line.strip().split("\t")[1]
                 if pos not in annotation:
-                    outfile.write(f"{line}\n")
+                        outfile.write(line)
+    
+    if snpannof: # If -snpannof is used, we generate the annotation-filtered SNP files for VarScan, Mutect2 and Minos
+        #VarScan .snp annotation filter
+        with open("{}.snp.varscan_annoF".format(prefix), "w") as outfile:
+            with open("{}.snp.varscan".format(prefix)) as infile:
+                header = infile.readline()
+                outfile.write(header)
+                for line in infile:
+                    pos = line.strip().split("\t")[1]
+                    if pos not in annotation:
+                            outfile.write(line)
+        
+        #Mutect2 VCF and .snp.tab annotation filter
+        with open("{}.snp.mutect_annoF".format(prefix), "w") as outfile:
+            with open("{}.snp.mutect".format(prefix)) as infile:
+                lines_mutect2 = infile.readlines()
+                headers = [x.strip() for x in lines_mutect2 if '#' in x]
+                rest_of_file = [x.strip() for x in lines_mutect2 if '#' not in x]
+                outfile.write("\n".join(headers)+"\n")
+                for line in rest_of_file:
+                    pos = line.strip().split("\t")[1]
+                    if pos not in annotation:
+                        outfile.write(f"{line}\n")
+        
+        with open("{}.snp.mutect.tab_annoF".format(prefix), "w") as outfile:
+            with open("{}.snp.mutect.tab".format(prefix)) as infile:
+                header = infile.readline()
+                outfile.write(header)
+                for line in infile:
+                    pos = line.strip().split("\t")[1]
+                    if pos not in annotation:
+                            outfile.write(line)
+        
+        # Filtering Minos file
+        with open("{}.snp.minos_annoF".format(prefix), "w") as outfile:
+            with open("{}.snp.minos".format(prefix)) as infile:
+                header = infile.readline()
+                outfile.write(header)
+                for line in infile:
+                    pos = line.strip().split("\t")[1]
+                    if pos not in annotation:
+                        outfile.write(line)
 
-    # Remove the original file and just keep the one filtered by annotation
-    os.rename(f"{prefix}.parsed.vcf", f"{prefix}.parsed.vcf.original_no_annoF")
-    os.rename(f"{prefix}.parsed.vcf_annoF", f"{prefix}.parsed.vcf")
-    os.rename(f"{prefix}.snp", f"{prefix}.snp.original_no_annoF")
-    os.rename(f"{prefix}.snp_annoF", f"{prefix}.snp")
-    os.rename(f"{prefix}.snp.vcf", f"{prefix}.snp.vcf.original_no_annoF")
-    os.rename(f"{prefix}.snp.vcf_annoF", f"{prefix}.snp.vcf")
+    # Filtering snpEff file
+    # with open("{}.final_sin_wt_complemented_annotSnpEff_annoF.vcf".format(prefix), "w") as outfile:
+    #     with open("{}.final_sin_wt_complemented_annotSnpEff.vcf".format(prefix)) as infile:
+    #         lines_snpeff = infile.readlines()
+    #         headers = [x.strip() for x in lines_snpeff if '#' in x]
+    #         rest_of_file = [x.strip() for x in lines_snpeff if '#' not in x]
+    #         outfile.write("\n".join(headers)+"\n")
+    #         for line in rest_of_file:
+    #             pos = line.strip().split("\t")[1]
+    #             if pos not in annotation:
+    #                 outfile.write(f"{line}\n")
 
-    sp.run([f"echo Annotation filtering performed on {prefix} VarScan and Mutect2 output files >> {prefix}.history"],shell=True, universal_newlines=True)
+
+    sp.run([f"echo Annotation filtering performed on {prefix} all SNP output files >> {prefix}.history"],shell=True, universal_newlines=True)
 
 def mutect2_vcf_to_tab(prefix):
     import subprocess as sp
@@ -733,13 +769,65 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
         from statistics import mean
 
         depths_to_write = [int(mean(values)) for keys,values in dic_variants.items()]
-
+        
         if len(depths_to_write) == 1: # If there's only one variant, return the mean depth for it
             return depths_to_write[0]
                     
         elif len(depths_to_write) > 1: # If there's more than one variant, return the a list of the mean depth for each of them
             return depths_to_write
+        
+    def get_complete_depths_from_varscan_and_mutect(pos_minos, ref_ID):
+        '''This function will obtain the depth for each WT and ALT/Consensus position called by Minos from the VarScan and Mutect2 outputs. 
+        If the position is present in both callers, the mean depth will be calculated.'''
+        
+        variantes = cons.split(",")
+        lista_keys = [ref+i for i in variantes]
+        dic_variants = {key: [[], []] for key in lista_keys} # Each key will have 2 lists, the first for the WT depth and the second for the ALT/Consensus depth. This way we can keep them separated and then calculate the mean for each one of them independently.
+        # Get depths from VarScan and Mutect2
+        with open("{}.snp".format(prefix), "r+") as input_varscan:
+            lines_varscan = input_varscan.readlines()
+    
+            for line_varscan in lines_varscan:
+                try:
+                    if any(f"{item}\t{pos_minos}\t" in line_varscan for item in ref_ID): 
+                        ref_varscan, cons_varscan, depth_WT, depth_ALT = itemgetter(2,18,4,5)(line_varscan.strip().split("\t"))
+                        print(ref_varscan, cons_varscan, depth_WT, depth_ALT)
+                        dic_variants[ref_varscan+cons_varscan][0].append(int(depth_WT)) # Save WT depth in the first list of the key
+                        dic_variants[ref_varscan+cons_varscan][1].append(int(depth_ALT)) # Save ALT depth in the second list of the key
+                except KeyError: 
+                    continue
 
+        with open("{}.remade.snp.vcf".format(prefix), "r+") as input_mutect2:
+            lines_mutect2 = input_mutect2.readlines()
+
+            for line_mutect2 in lines_mutect2:
+                try:
+                    if any(f"{item}\t{pos_minos}\t" in line_mutect2 for item in ref_ID):
+                        ref_mutect, cons_mutect, info_mutect = itemgetter(3,4,9)(line_mutect2.split("\t"))
+                        depth_variant_mutect_WT = str(int(info_mutect.split(":")[1].split(",")[0])) # Guardamos la depth de la WT
+                        depth_variant_mutect_ALT = str(int(info_mutect.split(":")[1].split(",")[1])) # Guardamos la depth de la ALT
+                        dic_variants[ref_mutect+cons_mutect][0].append(float(depth_variant_mutect_WT)) # Save WT depth in the first list of the key
+                        dic_variants[ref_mutect+cons_mutect][1].append(float(depth_variant_mutect_ALT)) # Save ALT depth in the second list of the key
+                except KeyError:
+                    continue
+                    
+        from statistics import mean
+        depths_to_write = []
+        for keys, values in dic_variants.items():
+            if len(dic_variants) == 1:
+                mean_depth_WT = int(mean(values[0]))
+                mean_depth_ALT = int(mean(values[1]))
+                depths_to_write.append([str(mean_depth_WT), str(mean_depth_ALT)])
+                return depths_to_write[0] # If there's only one variant, return the mean depth for WT and ALT separated by a comma
+            
+            elif len(dic_variants) > 1:
+                print(values)
+                mean_depths_WT = int(mean(values[0]))
+                mean_depths_ALT = int(mean(values[1]))
+                depths_to_write.append([str(mean_depths_WT), str(mean_depths_ALT)])
+        print("DEPTHS TO WRITE:", depths_to_write)
+        return depths_to_write     
+        
 
     def check_bigger_than_90(list1, val):
 
@@ -856,7 +944,7 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
 
 
     with open("{}.minos.raw.tab".format(prefix), "w+") as raw_tab:
-        raw_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_total\tVarAllele\n") # Header
+        raw_tab.write("#Chrom\tPosition\tRef\tCons\tVarFreq\tCov_total\tVarAllele\tTotal_Read_Count\n") # Header
 
         for line in lines_noheader: # For each position in the Minos output (now complemented with common positions)
             tokens = line.split("\t")
@@ -867,13 +955,14 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
 
             varfreq = get_freqs_from_varscan_and_mutect(position, ref_ID) # Get mean frequency from VarScan and Mutect2
             cov_total = get_depths_from_varscan_and_mutect(position, ref_ID) # Get mean depth from VarScan and Mutect2
-
+            total_read_count = get_complete_depths_from_varscan_and_mutect(position, ref_ID) # Get mean depth for WT and ALT from VarScan and Mutect2
+            print(position, total_read_count)
             if len(cons.split(",")) == 1 and varfreq < 90: # If it's biallelic and the ALT freq is < 90%, we map to IUPAC code
                 code_iupac = find_key_with_elements(iupac, [ref, cons])
-                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,code_iupac,varfreq,cov_total,cons))
+                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,code_iupac,varfreq,cov_total,cons,",".join(total_read_count)))
     
             elif len(cons.split(",")) == 1 and varfreq >= 90: # If it's biallelic and the ALT freq is >= 90%, we fix the ALT
-                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,cons,varfreq,cov_total,cons))
+                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,cons,varfreq,cov_total,cons,",".join(total_read_count)))
 
             elif len(cons.split(",")) > 1 and check_bigger_than_90(varfreq,90): # If it's multiallelic and any ALT freq is >= 90%, we fix that ALT in Cons column but keep all the info in the rest of columns
                 variantes = cons.split(",")
@@ -885,9 +974,10 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
                 string_varfreq = "{},{}".format(varfreq[max_index], varfreq[min_index])
                 string_VarAllele = "{},{}".format(variante_90perc, variante_minoritaria)
                 string_depth = "{},{}".format(cov_total[max_index], cov_total[min_index])
+                string_total_read_count = "{};{}".format(",".join(total_read_count[max_index]), ",".join(total_read_count[min_index]))
                 
                 # We write the line with the variant > 90% in Cons
-                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,variante_90perc,string_varfreq,string_depth,string_VarAllele))
+                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,variante_90perc,string_varfreq,string_depth,string_VarAllele,string_total_read_count))
             
             # If there's no variant at > 90% freq, we put ? in Cons and write all the info in parallel order
             elif len(cons.split(",")) > 1 and check_lower_than_90(varfreq,90): 
@@ -900,8 +990,8 @@ def minos_raw_vcf_to_tab(prefix, ref_ID, snpEff):
                 string_varfreq = "{},{}".format(varfreq[max_index], varfreq[min_index])
                 string_VarAllele = "{},{}".format(variante_mayoritaria, variante_minoritaria)
                 string_depth = "{},{}".format(cov_total[max_index], cov_total[min_index])
-
-                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,"?",string_varfreq,string_depth,string_VarAllele))
+                string_total_read_count = "{};{}".format(",".join(total_read_count[max_index]), ",".join(total_read_count[min_index]))
+                raw_tab.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(chrom,position,ref,"?",string_varfreq,string_depth,string_VarAllele,string_total_read_count))
                                    
     filter_raw_minos("{}.minos.raw.tab".format(prefix),prefix)
 
@@ -1015,18 +1105,18 @@ def densityfilter(prefix, window, dens):
 
 
     # save filtered VCF
-    final_file = open("{}.EPI.snp.final.annoF".format(prefix), 'w')
+    final_file = open("{}.EPI.snp.final".format(prefix), 'w')
         #final_file.write('\t'.join(header))
 
     EPI_tab_file.loc[~EPI_tab_file['Position'].isin(pos_to_remove)
-                 ].to_csv("{}.EPI.snp.final.annoF".format(prefix),
+                 ].to_csv("{}.EPI.snp.final".format(prefix),
                           mode='a', sep="\t", index=False)
     final_file.close()
 
     print(len(pos_to_remove), " SNPs removed by density filter: "
           "window = ", window, ", density = ", dens)
 
-    sp.run([f"echo EPI and density filter applied to {prefix}. Saved in {prefix}.EPI.snp.final.annoF >> {prefix}.history"],shell=True, universal_newlines=True)
+    sp.run([f"echo EPI and density filter applied to {prefix}. Saved in {prefix}.EPI.snp.final >> {prefix}.history"],shell=True, universal_newlines=True)
 
 
 
@@ -1400,9 +1490,6 @@ def Calling(args):
             args.ext, args.threads, args.min_depth, args.min_qual,
             args.filter_freq)
 
-    print("\033[92m\nAnnotation-filtering VarScan and Mutect2 outputs of sample {}\n\033[00m".format(args.prefix))
-    annoF_varscan_mutect(args.prefix)
-
     # Multiallelic filter from Mutect2 snp output
     filter_multiallelic_from_mutect2_snp(args.prefix)
 
@@ -1420,12 +1507,12 @@ def Calling(args):
     minos_raw_vcf_to_tab(args.prefix, ref_ID, snpEff)
 
     # EPI filtering
-    print("\033[92m\nObtaining {}.EPI.snp.final.annoF\n\033[00m".format(args.prefix))
+    print("\033[92m\nObtaining {}.EPI.snp.final\n\033[00m".format(args.prefix))
     filter_EPI(args.prefix)
         
     # Apply density filter
     if not args.skip_dens_filt:  # by density
-        print("\033[92m\nFiltering {}.EPI.snp.final.annoF by density\n\033[00m".format(args.prefix))
+        print("\033[92m\nFiltering {}.EPI.snp.final by density\n\033[00m".format(args.prefix))
         densityfilter(args.prefix, args.window, args.density)
 
 
@@ -1456,17 +1543,19 @@ def Calling(args):
     os.remove("{}.vcf.idx".format(args.prefix))
     os.remove("read-orientation-model_{}.tar.gz".format(args.prefix))
     
-    # If not -kna, remove original SNP files from VarScan and Mutect2 and just keep files filtered by annotation
-    if not args.keep_not_annof:
-        os.remove("{}.parsed.vcf.original_no_annoF".format(args.prefix))
-        os.remove("{}.snp.original_no_annoF".format(args.prefix))
-        os.remove("{}.snp.vcf.original_no_annoF".format(args.prefix))
-
 
     # Mutect2 output VCF file is converted to tab format by default if -kmvcf parameter is not used. If it is, we keep both files
     mutect2_vcf_to_tab(args.prefix)
+    
+    print("\033[92m\nAnnotation-filtering .DR.snp.final and EPI.snp.final files outputs of sample {}\n\033[00m".format(args.prefix))
+    annoF_varscan_mutect(args.prefix, args.snpannof)
+
     if not args.kmvcf:
         os.remove("{}.snp.mutect".format(args.prefix))
+        if os.path.exists("{}.snp.mutect_annoF".format(args.prefix)):
+            os.remove("{}.snp.mutect_annoF".format(args.prefix))
+
+ 
 
 
     # If the reference used is not based in H37Rv (i.e. MTB_anc or H37Rv), gene annotation won't be correct. Thus, we remove the annotation from the annotated files.

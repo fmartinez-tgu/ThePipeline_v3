@@ -258,11 +258,527 @@ def generateSNPtable(paths, outfile, sample_list, threads):
     SNP_table.to_csv("{}.SNP_table.txt".format(outfile), sep="\t", index=False)
     SNP_table.index = range(0, SNP_table.shape[0], 1)
 
-    sp.run("rm snpeff_concat*", shell=True)
+    # Attempt to fix ALT redundancies using snpeff_concat_deduplicated if present
+    print("\033[92m\nChecking for redundancies in the SNP table\n\033[00m".format(threads))
+    try:
+        # call the fixer defined below in this module
+        snp_path = "{}.SNP_table.txt".format(outfile)
+        snpeff_path = "snpeff_concat_deduplicated"
+        if os.path.exists(snpeff_path):
+            try:
+                fix_snp_table_from_snpeff(snp_path, snpeff_path, out_path=snp_path)
+            except Exception as e:
+                print(f"Warning: could not auto-fix SNP table: {e}")
+    except Exception:
+        pass
+    
+    # Now we read the SNP table again to ensure it's updated with the fixed version if the fixer ran successfully
+    #sp.run("rm snpeff_concat*", shell=True)
+    SNP_table = pd.read_csv("{}.SNP_table.txt".format(outfile), sep="\t")
 
     return SNP_table
+    
+def fix_snp_table_from_snpeff(snp_table_path, snpeff_concat_path, out_path=None):
+    """
+    Fix the ALT column and annotation-derived columns in a SNP table using the
+    SnpEff concatenated deduplicated file.
 
+    - snp_table_path: path to the SNP table (tab-delimited with header 'Position' and 'ALT')
+    - snpeff_concat_path: path to the snpeff_concat_deduplicated file used to build the table
+    - out_path: optional path where corrected table will be written (if None, overwrite input file)
 
+    The function will:
+    - Read the SNP table into a pandas DataFrame
+    - Read the SnpEff file into a DataFrame (tab-separated, header)
+    - For each POS in the SNP table, gather all ALT alleles present in snpeff file and replace the ALT
+      column with a deduplicated, comma-separated sorted ALT list.
+    - Populate/replace the Variant_type, Nuc_change and AA_change columns using ANN/INFO fields from SnpEff
+      aggregated per (POS, ALT) when possible, or per POS if the specific allele is not present in snpeff.
+    - Write corrected table to out_path.
+    """
+    import pandas as pd
+    import os
+
+    if out_path is None:
+        out_path = snp_table_path
+
+    # Load SNP table
+    snp_df = pd.read_csv(snp_table_path, sep='\t', dtype={
+        'Position': 'int64',
+        'ALT': 'string'
+    })
+
+    # Read snpeff_concat_deduplicated
+    if not os.path.exists(snpeff_concat_path):
+        raise FileNotFoundError(f"SnpEff file not found: {snpeff_concat_path}")
+
+    snpeff_df = pd.read_csv(snpeff_concat_path, sep='\t', comment='#', header=0, dtype=str)
+
+    # Normalize column names
+    snpeff_df.columns = [c.strip() for c in snpeff_df.columns]
+
+    # Ensure POS and ALT columns exist
+    if 'POS' not in snpeff_df.columns or 'ALT' not in snpeff_df.columns:
+        raise ValueError("snpeff_concat file must contain POS and ALT columns")
+
+    # Build a mapping: Position -> set(ALT)
+    pos_to_alts = {}
+    pos_to_ref = {}
+    # also populate pos_to_ref using the full dataframe (some loops below iterate only subset columns)
+    for _, row in snpeff_df.iterrows():
+        try:
+            p = int(row['POS'])
+        except Exception:
+            continue
+        try:
+            ref_val = str(row.get('REF', ''))
+            if ref_val and ref_val != '.':
+                pos_to_ref.setdefault(p, ref_val)
+        except Exception:
+            pass
+
+    for _, row in snpeff_df[['POS', 'ALT']].iterrows():
+        try:
+            p = int(row['POS'])
+        except Exception:
+            continue
+        alt_field = str(row['ALT'])
+        # (pos_to_ref already populated above)
+        # ALT may contain comma-separated alleles in VCF; split and dedupe
+        for a in alt_field.split(','):
+            a = a.strip()
+            if a == '' or a == '.':
+                continue
+            pos_to_alts.setdefault(p, set()).add(a)
+
+    # Build annotation aggregates per (POS, ALT) and per POS
+    # We'll look for ANN= or the INFO field following SnpEff conventions
+    # pos_alt_ann: (pos, alt) -> {'Variant_type': set(), 'Nuc_change': set(), 'AA_change': set(), 'Nuc_to_AA': {nuc: set(aa)}, 'Nuc_to_Vtype': {nuc: set(vtypes)}, 'entries': [(nuc,aa,vtype,gene), ...]}
+    pos_alt_ann = {}
+    # pos_ann: pos -> {'Variant_type': set(), 'Nuc_change': set(), 'AA_change': set(), 'Nuc_to_AA': {nuc: set(aa)}, 'Nuc_to_Vtype': {nuc: set(vtypes)}, 'entries': [...]}
+    pos_ann = {}
+
+    import re
+
+    for _, row in snpeff_df.iterrows():
+        try:
+            p = int(row['POS'])
+        except Exception:
+            continue
+        alt_field = str(row.get('ALT', ''))
+        info_field = str(row.get('INFO', ''))
+
+        # canonical list of ALT values for this VCF row
+        alt_values = [a.strip() for a in alt_field.split(',') if a.strip() and a.strip() != '.']
+
+        # Extract ANN=... content if present (SnpEff ANN format)
+        ann_content = ''
+        if 'ANN=' in info_field:
+            try:
+                ann_content = info_field.split('ANN=')[1].split(';')[0]
+            except Exception:
+                ann_content = ''
+
+        # ANN entries are comma-separated; each has pipe-delimited subfields per SnpEff doc
+        if ann_content:
+            effects = ann_content.split(',')
+            # Process each ANN effect and try to assign it to the ALT allele it references
+            for eff in effects:
+                parts = eff.split('|')
+                # parts[0]=allele (usually), parts[1]=impact/effect (Variant type), parts[9]=nuc change, parts[10]=aa change
+                raw_allele = parts[0] if len(parts) > 0 else ''
+                vval = parts[1] if len(parts) > 1 and parts[1] else ''
+                nval = parts[9].replace("c.", "") if len(parts) > 9 and parts[9] else ''
+                aval = parts[10].replace("p.", "") if len(parts) > 10 and parts[10] else ''
+
+                # determine allele this ANN effect refers to
+                assigned_allele = None
+                parsed_mismatch = False
+                # Prefer to parse the nucleotide change to extract the ALT base (most reliable)
+                if nval:
+                    m = re.search(r"[A-Za-z0-9_\-]*?([ACGT])>([ACGT])", nval)
+                    if m:
+                        alt_base = m.group(2)
+                        if alt_base in alt_values:
+                            assigned_allele = alt_base
+                        else:
+                            # we parsed an ALT base but it doesn't match the VCF ALT values -> don't trust ANN allele token
+                            parsed_mismatch = True
+
+                # If we couldn't parse from the c. field, and we didn't parse a mismatching ALT, use the allele token from ANN when it matches an ALT
+                if assigned_allele is None and not parsed_mismatch and raw_allele and raw_allele != '.':
+                    if raw_allele in alt_values:
+                        assigned_allele = raw_allele
+
+                # last resort: if the VCF row has only one ALT and we didn't parse a mismatching c. field,
+                # assume the effect refers to it. If the c. field parsed but indicated a different ALT,
+                # avoid assigning this ANN to the allele.
+                if assigned_allele is None and not parsed_mismatch and len(alt_values) == 1:
+                    assigned_allele = alt_values[0]
+
+                # Assign effect to allele-specific mapping if we determined an allele
+                gene = parts[3] if len(parts) > 3 and parts[3] else ''
+                if assigned_allele:
+                    key = (p, assigned_allele)
+                    entry = pos_alt_ann.setdefault(key, {'Variant_type': set(), 'Nuc_change': set(), 'AA_change': set(), 'Nuc_to_AA': {}, 'Nuc_to_Vtype': {}, 'entries': []})
+                    # append ordered entry preserving ANN order (do not duplicate identical tuples)
+                    tup = (nval, aval, vval, gene)
+                    if tup not in entry['entries']:
+                        entry['entries'].append(tup)
+                    if vval:
+                        entry['Variant_type'].add(vval)
+                    if nval:
+                        entry['Nuc_change'].add(nval)
+                        entry['Nuc_to_AA'].setdefault(nval, set())
+                        entry['Nuc_to_Vtype'].setdefault(nval, set())
+                        if aval:
+                            entry['Nuc_to_AA'][nval].add(aval)
+                        if vval:
+                            entry['Nuc_to_Vtype'][nval].add(vval)
+                    if aval:
+                        entry['AA_change'].add(aval)
+
+                # Also aggregate at POS level as a fallback (keep mapping nuc->aa here too)
+                entryp = pos_ann.setdefault(p, {'Variant_type': set(), 'Nuc_change': set(), 'AA_change': set(), 'Nuc_to_AA': {}, 'Nuc_to_Vtype': {}, 'entries': []})
+                tup_p = (nval, aval, vval, gene)
+                if tup_p not in entryp['entries']:
+                    entryp['entries'].append(tup_p)
+                if vval:
+                    entryp['Variant_type'].add(vval)
+                if nval:
+                    entryp['Nuc_change'].add(nval)
+                    entryp['Nuc_to_AA'].setdefault(nval, set())
+                    entryp['Nuc_to_Vtype'].setdefault(nval, set())
+                    if aval:
+                        entryp['Nuc_to_AA'][nval].add(aval)
+                    if vval:
+                        entryp['Nuc_to_Vtype'][nval].add(vval)
+                if aval:
+                    entryp['AA_change'].add(aval)
+
+    # Post-process pos_ann to detect positions where all ANN entries report the same nucleotide change.
+    # In those cases we will prefer the first ANN entry for fallbacks (first ANN wins for identical changes).
+    for p, pdata in list(pos_ann.items()):
+        try:
+            entries = pdata.get('entries', [])
+            # collect all non-empty nuc changes from entries
+            nucs = [e[0] for e in entries if e and e[0]]
+            if nucs and len(set(nucs)) == 1:
+                pdata['entries_all_same_nuc'] = True
+                pdata['entries_first'] = entries[0]
+            else:
+                pdata['entries_all_same_nuc'] = False
+        except Exception:
+            pdata['entries_all_same_nuc'] = False
+
+    # Now iterate SNP table and fix ALT and annotation columns
+    corrected_rows = []
+    corrections = []
+    for idx, row in snp_df.iterrows():
+        pos = int(row['Position'])
+        # Prefer the ALT set from snpeff, otherwise keep existing but clean duplicates
+        if pos in pos_to_alts:
+            alts = sorted(pos_to_alts[pos])
+            new_alt = ','.join(alts)
+        else:
+            # clean the existing ALT field (handle values like 'A,A,C')
+            existing = str(row.get('ALT', ''))
+            parts = [p.strip() for p in existing.split(',') if p.strip() and p.strip() != '.']
+            new_alt = ','.join(sorted(set(parts), key=parts.index))
+
+        # Fill annotation fields: try per (pos, each_alt) and aggregate
+        variant_types, nuc_changes, aa_changes = set(), set(), set()
+        for a in new_alt.split(','):
+            a = a.strip()
+            if not a:
+                continue
+            key = (pos, a)
+            if key in pos_alt_ann:
+                entry = pos_alt_ann[key]
+                variant_types.update(entry['Variant_type'])
+                nuc_changes.update(entry['Nuc_change'])
+                aa_changes.update(entry['AA_change'])
+
+        # If no per-allele entries found, use POS-level aggregation
+        if not variant_types and pos in pos_ann:
+            variant_types.update(pos_ann[pos]['Variant_type'])
+            nuc_changes.update(pos_ann[pos]['Nuc_change'])
+            aa_changes.update(pos_ann[pos]['AA_change'])
+
+        # Get strand early so per-allele matching can consider it
+        strand = ''
+        if 'Strand' in snp_df.columns:
+            try:
+                strand = str(snp_df.at[idx, 'Strand'])
+            except Exception:
+                strand = ''
+
+        # Build per-allele annotation strings aligned with the ALT order
+        comp = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
+        per_allele_vtypes = []
+        per_allele_nucs = []
+        per_allele_aas = []
+
+        # Prepare POS-level ordered lists for fallback allocation (nuc changes)
+        pos_nuc_list = []
+        pos_v_str = ''
+        pos_aa_str = ''
+        if pos in pos_ann:
+            pos_nuc_list = sorted([x for x in pos_ann[pos]['Nuc_change'] if x])
+            pos_v_str = ';'.join(sorted([x for x in pos_ann[pos]['Variant_type'] if x]))
+            pos_aa_str = ';'.join(sorted([x for x in pos_ann[pos]['AA_change'] if x]))
+
+        alleles = [a.strip() for a in new_alt.split(',')]
+        for i, a in enumerate(alleles):
+            if not a:
+                per_allele_vtypes.append('')
+                per_allele_nucs.append('')
+                per_allele_aas.append('')
+                continue
+            key = (pos, a)
+            if key in pos_alt_ann:
+                entry = pos_alt_ann[key]
+                # Prefer the first ANN entry recorded (ANN order) when available
+                if entry.get('entries'):
+                    first_entry = entry['entries'][0]
+                    n_str = first_entry[0] or ''
+                    aa_str = first_entry[1] or ''
+                    # prefer vtype from the entry tuple if present
+                    if first_entry[2]:
+                        v_str = first_entry[2]
+                    else:
+                        # fall back to nuc->vtype or Variant_type set
+                        if n_str and 'Nuc_to_Vtype' in entry and n_str in entry['Nuc_to_Vtype']:
+                            v_str = ';'.join(sorted([x for x in entry['Nuc_to_Vtype'][n_str] if x]))
+                        else:
+                            v_str = ';'.join(sorted([x for x in entry['Variant_type'] if x]))
+                else:
+                    # Nuc_change per allele: pick a single representative example (first sorted)
+                    n_list = sorted([x for x in entry['Nuc_change'] if x])
+                    n_str = n_list[0] if n_list else ''
+                    aa_str = ';'.join(sorted([x for x in entry['AA_change'] if x]))
+                    if n_str and 'Nuc_to_Vtype' in entry and n_str in entry['Nuc_to_Vtype']:
+                        v_str = ';'.join(sorted([x for x in entry['Nuc_to_Vtype'][n_str] if x]))
+                    else:
+                        v_str = ';'.join(sorted([x for x in entry['Variant_type'] if x]))
+            else:
+                # fallback: prefer POS-level nuc->AA mappings that match the ALT allele
+                n_str = ''
+                aa_str = ''
+                v_str = pos_v_str
+
+                if pos in pos_ann and 'Nuc_to_AA' in pos_ann[pos]:
+                    # try to find nuc changes whose ALT base matches this allele
+                    matched = False
+                    for nuc_change in sorted([x for x in pos_ann[pos]['Nuc_change'] if x]):
+                        # parse ALT base from the nuc change (pattern like 907C>T)
+                        m_alt = re.search(r">([ACGT])", nuc_change)
+                        if not m_alt:
+                            continue
+                        ann_alt = m_alt.group(1)
+                        # For negative strand, ANN c. ALT is in coding strand (complement of genomic ALT)
+                        expected = comp.get(a, a) if strand == '-' else a
+                        if ann_alt == expected:
+                            n_str = nuc_change
+                            # If all entries for this POS report the same nuc change, prefer the first ANN entry globally
+                            aa_str = ''
+                            vtype_choice = ''
+                            if pos_ann[pos].get('entries_all_same_nuc') and 'entries_first' in pos_ann[pos]:
+                                first = pos_ann[pos]['entries_first']
+                                if first and first[0] == nuc_change:
+                                    aa_str = first[1] or ''
+                                    vtype_choice = first[2] or ''
+                            else:
+                                # prefer the first pos_ann entry matching this nuc_change to preserve ANN ordering
+                                if 'entries' in pos_ann[pos]:
+                                    for etup in pos_ann[pos]['entries']:
+                                        if etup[0] == nuc_change:
+                                            aa_str = etup[1] or ''
+                                            vtype_choice = etup[2] or ''
+                                            break
+                            if not aa_str:
+                                aas = pos_ann[pos]['Nuc_to_AA'].get(nuc_change, set())
+                                if aas:
+                                    aa_str = ';'.join(sorted(aas))
+                                else:
+                                    aa_str = ';'.join(sorted([x for x in pos_ann[pos]['AA_change'] if x]))
+                            # set v_str to the chosen vtype from entries if found, else try Nuc_to_Vtype, else pos_v_str
+                            if vtype_choice:
+                                v_str = vtype_choice
+                            elif n_str and 'Nuc_to_Vtype' in pos_ann[pos] and n_str in pos_ann[pos]['Nuc_to_Vtype']:
+                                v_str = ';'.join(sorted([x for x in pos_ann[pos]['Nuc_to_Vtype'][n_str] if x]))
+                            else:
+                                v_str = pos_v_str
+                            matched = True
+                            break
+
+                    # If no matching nuc->AA found, fall back to allocating examples sequentially
+                    if not matched:
+                        if i < len(pos_nuc_list):
+                            n_str = pos_nuc_list[i]
+                        elif len(pos_nuc_list) > 0:
+                            n_str = pos_nuc_list[-1]
+                        else:
+                            n_str = ''
+                        # for AA, attempt to use mapping for that nuc if available
+                        aas = pos_ann[pos]['Nuc_to_AA'].get(n_str, set()) if n_str else set()
+                        if aas:
+                            aa_str = ';'.join(sorted(aas))
+                        else:
+                            aa_str = ';'.join(sorted([x for x in pos_ann[pos]['AA_change'] if x]))
+                else:
+                    # previous behavior when no POS-level mapping exists
+                    if i < len(pos_nuc_list):
+                        n_str = pos_nuc_list[i]
+                    elif len(pos_nuc_list) > 0:
+                        n_str = pos_nuc_list[-1]
+                    else:
+                        n_str = ''
+                    aa_str = pos_aa_str
+
+            per_allele_vtypes.append(v_str)
+            per_allele_nucs.append(n_str)
+            per_allele_aas.append(aa_str)
+
+        # final strings: one element per allele, comma-separated; this preserves duplicated AA entries across alleles
+        # If the gene is on the negative strand, complement nucleotide letters in the Nuc_change to match coding strand
+        strand = ''
+        if 'Strand' in snp_df.columns:
+            try:
+                strand = str(snp_df.at[idx, 'Strand'])
+            except Exception:
+                strand = ''
+
+        comp = {'A': 'T', 'T': 'A', 'C': 'G', 'G': 'C'}
+
+        if strand == '-':
+            def reconstruct_from_ref(n_str, genome_pos, allele):
+                """Rebuild nuc change using genomic REF (pos_to_ref) complemented and allele complemented.
+                n_str: existing nuc change string (contains cDNA coordinate)
+                genome_pos: genomic POS (int)
+                allele: ALT allele in genomic orientation (single base)
+                """
+                if not n_str:
+                    return ''
+                # try to get cDNA position number from the existing string
+                mpos = re.search(r"(\d+)", n_str)
+                if not mpos:
+                    # fallback to complementing existing pattern
+                    def _repl(m):
+                        posnum = m.group(1)
+                        refb = m.group(2)
+                        altb = m.group(3)
+                        crefb = comp.get(refb, refb)
+                        caltb = comp.get(altb, altb)
+                        return f"{posnum}{crefb}>{caltb}"
+                    try:
+                        return re.sub(r"(\d+)([ACGT])>([ACGT])", _repl, n_str)
+                    except Exception:
+                        return n_str
+
+                posnum = mpos.group(1)
+                # genomic REF base for this POS
+                gref = pos_to_ref.get(genome_pos, None)
+                # if genomic REF available and allele is a single base, complement both
+                if gref and len(gref) == 1 and allele and len(allele) == 1:
+                    crefb = comp.get(gref.upper(), gref.upper())
+                    caltb = comp.get(allele.upper(), allele.upper())
+                    return f"{posnum}{crefb}>{caltb}"
+                else:
+                    # fallback to complementing the bases found in the existing n_str
+                    def _repl2(m):
+                        posnum2 = m.group(1)
+                        refb = m.group(2)
+                        altb = m.group(3)
+                        crefb = comp.get(refb, refb)
+                        caltb = comp.get(altb, altb)
+                        return f"{posnum2}{crefb}>{caltb}"
+                    try:
+                        return re.sub(r"(\d+)([ACGT])>([ACGT])", _repl2, n_str)
+                    except Exception:
+                        return n_str
+
+            # rebuild per-allele nuc strings using genomic REF complement and allele complement
+            per_allele_nucs = [reconstruct_from_ref(n, pos, alleles[i] if i < len(alleles) else '') if n else '' for i, n in enumerate(per_allele_nucs)]
+            # AA changes are reported relative to the protein sequence; keep values but ensure they remain aligned per allele
+            # No change to AA strings themselves (SnpEff reports AA on transcript/protein strand)
+
+        # Post-process: ensure Variant_type elements align with the selected nuc_change when possible.
+        # If an element equals the aggregated POS-level pos_v_str (e.g. 'missense_variant;synonymous_variant'),
+        # prefer the nuc-specific mapping from pos_ann or pos_alt_ann using per_allele_nucs.
+        try:
+            for i, vt in enumerate(per_allele_vtypes):
+                if not vt or (pos in pos_ann and vt == pos_v_str):
+                    n_example = per_allele_nucs[i] if i < len(per_allele_nucs) else ''
+                    chosen_v = ''
+                    if n_example:
+                        # check pos-level nuc->vtype
+                        if pos in pos_ann and 'Nuc_to_Vtype' in pos_ann[pos] and n_example in pos_ann[pos]['Nuc_to_Vtype']:
+                            chosen_v = ';'.join(sorted([x for x in pos_ann[pos]['Nuc_to_Vtype'][n_example] if x]))
+                        else:
+                            # check allele-specific mapping
+                            allele_key = (pos, alleles[i]) if i < len(alleles) else None
+                            if allele_key and allele_key in pos_alt_ann and 'Nuc_to_Vtype' in pos_alt_ann[allele_key] and n_example in pos_alt_ann[allele_key]['Nuc_to_Vtype']:
+                                chosen_v = ';'.join(sorted([x for x in pos_alt_ann[allele_key]['Nuc_to_Vtype'][n_example] if x]))
+                    if chosen_v:
+                        per_allele_vtypes[i] = chosen_v
+        except Exception:
+            # if anything unexpected happens, keep original per_allele_vtypes
+            pass
+
+        vtype_str = ','.join(per_allele_vtypes)
+        nchange_str = ','.join(per_allele_nucs)
+        achange_str = ','.join(per_allele_aas)
+
+        # Update DataFrame row
+        old_alt = str(snp_df.at[idx, 'ALT']) if 'ALT' in snp_df.columns else ''
+        snp_df.at[idx, 'ALT'] = new_alt
+        if old_alt != new_alt:
+            corrections.append((pos, old_alt, new_alt))
+        if 'Variant_type' in snp_df.columns:
+            snp_df.at[idx, 'Variant_type'] = vtype_str
+        if 'Nuc_change' in snp_df.columns:
+            snp_df.at[idx, 'Nuc_change'] = nchange_str
+        if 'AA_change' in snp_df.columns:
+            snp_df.at[idx, 'AA_change'] = achange_str
+
+    # Write corrected table
+    # Ensure Position_in_resistant_list stays in uppercase 'TRUE' (or empty) to match original output
+    try:
+        if 'Position_in_resistant_list' in snp_df.columns:
+            def _fix_res_val(x):
+                # keep empty/NA as empty string
+                if pd.isna(x):
+                    return ''
+                # booleans -> 'TRUE' or ''
+                if isinstance(x, bool):
+                    return 'TRUE' if x else ''
+                xs = str(x).strip()
+                if xs == '':
+                    return ''
+                if xs.upper() == 'TRUE':
+                    return 'TRUE'
+                if xs.lower() in ('true', 't', '1', 'yes'):
+                    return 'TRUE'
+                # otherwise keep as-is (string) but uppercase for consistency
+                return xs
+
+            snp_df['Position_in_resistant_list'] = snp_df['Position_in_resistant_list'].apply(_fix_res_val)
+    except Exception:
+        # if anything goes wrong, continue and write the dataframe (don't crash the fixer)
+        pass
+
+    snp_df.to_csv(out_path, sep='\t', index=False)
+
+    # Print a brief summary of corrections (positions changed and examples)
+    if corrections:
+        print(f"Corrected {len(corrections)} position(s)")
+        for pos, old, new in corrections[:50]:
+            print(f"POS {pos}: {old} => {new}")
+    else:
+        print("fix_snp_table_from_snpeff: no ALT corrections needed")
+
+    return snp_df
 
 def allFASTAS(table, paths, threads, sample_list):
     '''Generate all consensus fasta of all the samples
