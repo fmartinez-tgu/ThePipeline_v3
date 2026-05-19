@@ -1205,7 +1205,7 @@ def get_DR(prefix):
         next(infile)
 
         for line in infile:
-            line = line.strip().split("\t")
+            line = line.strip().split("\t")[:7]
 
             if "," in line[4]: # Modificar esto para que despliegue las líneas con trialélicas en 2 líneas separadas
 
