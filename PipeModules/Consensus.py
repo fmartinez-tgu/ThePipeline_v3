@@ -273,7 +273,7 @@ def generateSNPtable(paths, outfile, sample_list, threads):
         pass
     
     # Now we read the SNP table again to ensure it's updated with the fixed version if the fixer ran successfully
-    #sp.run("rm snpeff_concat*", shell=True)
+    sp.run("rm snpeff_concat*", shell=True)
     SNP_table = pd.read_csv("{}.SNP_table.txt".format(outfile), sep="\t")
 
     return SNP_table

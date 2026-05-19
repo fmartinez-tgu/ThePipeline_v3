@@ -1109,6 +1109,12 @@ def densityfilter(prefix, window, dens):
                           mode='a', sep="\t", index=False)
     final_file.close()
 
+    # Now we remove the last column, Total_Read_Count
+    df = pd.read_csv("{}.EPI.snp.final".format(prefix), sep="\t")
+    df.drop(columns=['Total_Read_Count'], inplace=True)
+    df.to_csv("{}.EPI.snp.final".format(prefix), sep="\t", index=False)
+
+
     print(len(pos_to_remove), " SNPs removed by density filter: "
           "window = ", window, ", density = ", dens)
 
@@ -1215,8 +1221,8 @@ def get_DR(prefix):
                     if line_[3] in ["M", "R", "W", "S", "Y", "K"]:
                         line_ = correct_line(line_)      
 
-                    if len(line_[-1]) == 1:
-                        snpid = line_[1]+line_[2]+line_[-1] # POS + REF + ALT
+                    if len(line_[6]) == 1:
+                        snpid = line_[1]+line_[2]+line_[6] # POS + REF + ALT
                         change = annotateSingle(snpid, genes, code, ancestor)
                     # print(line)
                         line_.extend(change.strip().split(","))
@@ -1230,8 +1236,8 @@ def get_DR(prefix):
                 if line[3] in ["M", "R", "W", "S", "Y", "K"]:
                     line = correct_line(line)      
 
-                if len(line[-1]) == 1:
-                    snpid = line[1]+line[2]+line[-1] # POS + REF + ALT
+                if len(line[6]) == 1:
+                    snpid = line[1]+line[2]+line[6] # POS + REF + ALT
                     change = annotateSingle(snpid, genes, code, ancestor)
                     # print(line)
                     line.extend(change.strip().split(","))
