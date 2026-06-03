@@ -187,7 +187,7 @@ MAPPING (PipeModules/Mapping.py)
 | `--keep-dupbam` | Keep duplicate-marked BAMs alongside deduplicated BAMs. | (flag) | When set, original dup-marked files are preserved. |
 | `-i`, `--index` | Run `bwa index -a bwtsw` on the provided reference. | (flag) | Use when first indexing a new reference. |
 | `--no-dedup` | Skip duplicate removal (Picard MarkDuplicates). | (flag) | Avoids running dedup step. |
-| `-mapq`, `--mapq` | MAPQ cutoff; filter alignments with MAPQ >= cutoff. | `0` | If >0, an `awk` filter is applied. |
+| `-mapq`, `--mapq` | MAPQ cutoff; filter alignments with MAPQ >= cutoff. | `60` | If > 0, an `awk` filter is applied. |
 | `-nhc`, `--no_hard_clipping` | Skip the hard-clipping step executed by `samclip_h`. | (flag) | Useful if hard clipping is not desired. |
 | `-c`, `--cram` | Produce CRAM output (`{prefix}.sort.cram`) and remove BAM. | (flag) | Recommended to save space. Requires samtools with CRAM support and reference available. |
 

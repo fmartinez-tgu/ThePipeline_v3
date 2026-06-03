@@ -176,12 +176,12 @@ def parse_args():
     mparser.add_argument("--no-dedup", dest="nodedup", action="store_true",
                          help=("Do not remove duplicates. Duplicates are "
                                "removed by default using picard-tools."))
-    mparser.add_argument("-mapq", dest="mapq_cutoff", default=0,
+    mparser.add_argument("-mapq", dest="mapq_cutoff", default=60,
                          type=int,
                          help=("Mapping quality filter (0-60)."
                                " Reads with MAPQ below"
                                " this value will be filtered out in the BAM "
-                               "file. DEFAULT=0"))
+                               "file. DEFAULT=60"))
     mparser.add_argument("-nhc", "--no_hard_clipping", dest="nhc", action="store_true", help=("When used, don't filter hardclipping reads after mapping"))
     mparser.add_argument("-c", "--cram", dest="cram_compress", action="store_true",
                          help=("Store the final mapping file as CRAM insted of BAM."

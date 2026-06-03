@@ -64,6 +64,7 @@ def bwa_map(fastq, reference, threads, index, prefix, mapq_cutoff, cram_compress
     for fq in fastq:
         cmd_bwa.append(fq)
     mem = sp.Popen(cmd_bwa, stdout=sp.PIPE)
+    
     if mapq_cutoff > 0:
         awk_MAPQ = sp.Popen(cmd_awk, stdin=mem.stdout, stdout=sp.PIPE)
         mem.stdout.close()

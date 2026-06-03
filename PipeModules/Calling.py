@@ -18,6 +18,7 @@
 from fileinput import filename
 import os
 import vcf
+
 def check_extension(ext):
     '''Check if the extension is either BAM or CRAM'''
     import sys
@@ -55,28 +56,6 @@ def VCFtoPandas(file):
     return data
 
 
-def mapq60_filter(prefix, ext, samtools, reference):
-    '''Before running VarScan, we're going to filter the CRAM file using a MAPQ >= 60 to use it exclusively with VarScan'''
-    print(f"FILTERING MAPQ 60 IN INPUT BAM")
-    import subprocess as sp
-    from subprocess import call
-
-    if ext == ".sort.bam":
-        bamfile = f"{prefix}{ext}"
-        # Command to filter the BAM file using a mapq >= 60 
-        cmd = f"""{samtools} view -h {bamfile} | awk '{{ if ($1 ~ /^@/ || $5 >= 60) print }}' > {prefix}_mapq60.sort.bam"""
-        sp.run(cmd, stdout=sp.PIPE, shell=True, universal_newlines=True)
-
-    elif ext == ".cram":
-        cram_file = f"{prefix}{ext}"
-        cram_to_sortbam = [samtools, "view", "-T", reference, "-B", "-o", "{}.sort.bam".format(prefix), cram_file]
-        call(cram_to_sortbam)
-
-        bamfile = f"{prefix}.sort.bam"
-        cmd = f"""{samtools} view -h {bamfile} | awk '{{ if ($1 ~ /^@/ || $5 >= 60) print }}' > {prefix}_mapq60.sort.bam"""
-        sp.run(cmd, stdout=sp.PIPE, shell=True, universal_newlines=True)
-
-
 def VarScan(reference, prefix, varscan, samtools, ext, ref_ID):
     '''Call samtools mpileup and Varscan, then transform output to simple VCF for Minos'''
     from subprocess import call
@@ -84,12 +63,15 @@ def VarScan(reference, prefix, varscan, samtools, ext, ref_ID):
     import pandas as pd
     from .History import UpdateHistory
 
-    mapq60_filter(prefix, ext, samtools, reference)
+    if "cram" in ext:
+        cram_file = f"{prefix}.cram"
+        cram_to_sortbam = [samtools, "view", "-T", reference, "-B", "-o", "{}.sort.bam".format(prefix), cram_file]
+        call(cram_to_sortbam)
 
-    bam_filtered_file = f"{prefix}_mapq60.sort.bam"
+    bam_file = f"{prefix}.sort.bam"
 
     with open("{}.mpileup.remove".format(prefix), "w") as outfh:
-        cmd = [samtools, "mpileup", "-AB", "-f", reference, bam_filtered_file]
+        cmd = [samtools, "mpileup", "-AB", "-f", reference, bam_file]
         stat = call(cmd, stdout=outfh)
         if stat != 0:
             sys.exit("Pipeline stopped at samtools mpileup!\n")
@@ -134,13 +116,6 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
     import os
     import pandas
     from .History import UpdateHistory
-
-    # need to import libstdc++.so.6 updated library for
-    # bedtools to work. It's in /PipeModules/Configs/lib
-    dirname = os.path.split(os.path.dirname(os.path.realpath(__file__)))[0]
-    os.environ['LD_LIBRARY_PATH'] = os.path.join(dirname,
-                                                 'data',
-                                                 'libs')
     
 
     # index BAM
@@ -1469,6 +1444,13 @@ def Calling(args):
     reference = args.reference
     genomeCoverageBed = programs["genomeCoverageBed"]
 
+    # need to import libstdc++.so.6 updated library for
+    # bedtools to work. It's in /PipeModules/Configs/lib
+    dirname = os.path.split(os.path.dirname(os.path.realpath(__file__)))[0]
+    os.environ['LD_LIBRARY_PATH'] = os.path.join(dirname,
+                                                 'data',
+                                                 'libs')
+
     # Check that mapping files end with .bam/.cram
     check_extension(args.ext)
 
@@ -1535,7 +1517,6 @@ def Calling(args):
     os.rename("{}.snp".format(args.prefix),"{}.snp.varscan".format(args.prefix))
     os.remove("{}.snp.vcf".format(args.prefix))
     os.remove("{}.vcf".format(args.prefix))
-    os.remove("{}_mapq60.sort.bam".format(args.prefix))
     os.remove("{}_no_orientation.vcf".format(args.prefix))
     os.remove("{}_unfiltered.vcf".format(args.prefix))
     os.remove("{}_unfiltered.vcf.stats".format(args.prefix))
