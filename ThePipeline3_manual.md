@@ -263,7 +263,7 @@ Outputs: `sample_A.coverage` (unless `--keep-coverage` omitted), `sample_A.meanc
 CALLING (PipeModules/Calling.py)
 --------------------------------
 **Purpose**
-- Variant discovery and adjudication: VarScan2 (pileup2snp/indel), GATK Mutect2-based calling, filtering of variants called in non-reliable genomic regions (PE/PPEs, highly repetitive regions), multiallelic handling, Minos adjudication (via Singularity) and SnpEff annotation (when reference corresponds to MTB ancestor/H37Rv). Variants with a frequence between 10%-90% are saved in a DR file (later used for resistance prediction) and fixed variants (freq>90%) are saved in a EPI file, which is further filtered by density.
+- Variant discovery and adjudication: VarScan2 (pileup2snp/indel), GATK Mutect2-based calling, filtering of variants called in non-reliable genomic regions (PE/PPEs, highly repetitive regions), multiallelic handling, Minos adjudication (via Singularity) and SnpEff annotation (when reference corresponds to MTB ancestor/H37Rv). Variants with a frequence >= 5% and depth >= 6 are saved in a DR file (later used for resistance prediction) and fixed variants (freq>=90% and depth>=20) are saved in a EPI file, which is further filtered by density.
 
 **CLI parameters (as parsed in `ThePipeline3`):**
 
