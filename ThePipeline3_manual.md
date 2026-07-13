@@ -543,7 +543,7 @@ ThePipeline3 resistance -r
    - Uncertain significance: according to the WHO catalogue, there is not enough statistical evidence to confirm the variant is or is not associated with resistance
    - Not assoc w R - Interim: according to the WHO catalogue, the variant **is not** associated with resistance with moderate confidence
    - Not assoc w R: according to the WHO catalogue, the variant **is not** associated with resistance with high confidence
-   - New: variant whose position is not included in the catalogue. The line includes all the drug resistances ever associated with that gene
+   - New: variant whose position is not included in the catalogue, but falls within a gene associated with resistance. The line includes all the drug resistances ever associated with that gene
    - Alt. AA as: the variant position is included in the catalogue but this specific codon change is not 
    - Alt. indel as: the indel position is included in the catalogue but this specific indel is not
    - Alt. NT as: the variant position is included in the catalogue but this specific nucleotide change is not
