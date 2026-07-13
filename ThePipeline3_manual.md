@@ -537,7 +537,17 @@ ThePipeline3 resistance -r
 ```
 
 **Outputs**
-- `{prefix}.res` — per-sample CSV-like file with Gene,Locus,Pos,CodonREF,CodonALT,Change,Freq,Drug,Confidence
+- `{prefix}.res` — per-sample CSV-like file with Gene,Locus,Pos,CodonREF,CodonALT,Change,Freq,Drug,Confidence. The last column may contain several tags:
+   - Assoc w R: according to the WHO catalogue, the variant is associated with resistance with high confidence
+   - Assoc w R - Interim: according to the WHO catalogue, the variant is associated with resistance with moderate confidence
+   - Uncertain significance: according to the WHO catalogue, there is not enough statistical evidence to confirm the variant is or is not associated with resistance
+   - Not assoc w R - Interim: according to the WHO catalogue, the variant **is not** associated with resistance with moderate confidence
+   - Not assoc w R: according to the WHO catalogue, the variant **is not** associated with resistance with high confidence
+   - New: variant that is not included in the catalogue. The line includes all the drugs for which the gene is supposed to confer resistance
+   - Alt. AA as: the variant position is included in the catalogue but this specific codon change is not 
+   - Alt. indel as: the indel position is included in the catalogue but this specific indel is not
+   - Alt. NT as: the variant position is included in the catalogue but this specific nucleotide change is not
+
 - `resistance_report.csv` — aggregated report for all samples in folder when `CreateReport()` is called
 
 **Notes**

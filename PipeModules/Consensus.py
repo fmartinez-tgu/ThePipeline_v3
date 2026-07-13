@@ -1029,7 +1029,7 @@ def multifastas(table, outfile, snpsites, paths, sample_list):
 
     if sample_list:
         for file in paths:
-           sp.run("cat {}*.fas >> {}.mf.fasta".format(file,outfile),
+           sp.run("cat {}.fas >> {}.mf.fasta".format(file,outfile),
             shell=True, capture_output=True)
     else:
         for folder in paths:
