@@ -260,14 +260,14 @@ def Mutect2(reference, prefix, gatk, samtools, genomeCoverageBed,
 # Now we filter VarScan (both parsed and original) and Mutect2 outputs using the annotation filter
 
 def annoF_varscan_mutect(prefix, snpannof):
-
+ 
     import os
     import subprocess as sp 
     annotation = LoadAnnotation("/data/ThePipeline_v3/data/H37Rv.annotation_new.tsv".format(
                     os.path.split(
                         os.path.dirname(
                             os.path.abspath(__file__)))[0]))
-
+ 
     #DR annotation filter
     with open("{}.DR.snp.final_annoF".format(prefix), "w") as outfile:
         with open("{}.DR.snp.final".format(prefix)) as infile:
@@ -321,15 +321,27 @@ def annoF_varscan_mutect(prefix, snpannof):
                             outfile.write(line)
         
         # Filtering Minos file
+        # ===== FIX 'None' bug: START (4/4) =====
+        # Valid values: Cons = single base, IUPAC code or "?"; VarAllele = comma-separated single bases.
+        # Lines with "None", indels ("+G", "-A") or any other value are skipped and not written to .snp.minos_annoF
+        valid_cons = {"A", "C", "G", "T", "M", "R", "W", "S", "Y", "K", "?"}
+        valid_bases = {"A", "C", "G", "T"}
+        # ===== FIX 'None' bug: END (4/4) =====
         with open("{}.snp.minos_annoF".format(prefix), "w") as outfile:
             with open("{}.snp.minos".format(prefix)) as infile:
                 header = infile.readline()
                 outfile.write(header)
                 for line in infile:
                     pos = line.strip().split("\t")[1]
+                    # ===== FIX 'None' bug: START (4/4) =====
+                    fields = line.rstrip("\n").split("\t")
+                    cons, var_allele = fields[3], fields[6]
+                    if cons not in valid_cons or any(a not in valid_bases for a in var_allele.split(",")):
+                        continue
+                    # ===== FIX 'None' bug: END (4/4) =====
                     if pos not in annotation:
                         outfile.write(line)
-
+ 
     # Filtering snpEff file
     # with open("{}.final_sin_wt_complemented_annotSnpEff_annoF.vcf".format(prefix), "w") as outfile:
     #     with open("{}.final_sin_wt_complemented_annotSnpEff.vcf".format(prefix)) as infile:
@@ -341,9 +353,10 @@ def annoF_varscan_mutect(prefix, snpannof):
     #             pos = line.strip().split("\t")[1]
     #             if pos not in annotation:
     #                 outfile.write(f"{line}\n")
-
-
+ 
+ 
     sp.run([f"echo Annotation filtering performed on {prefix} all SNP output files >> {prefix}.history"],shell=True, universal_newlines=True)
+
 
 def mutect2_vcf_to_tab(prefix):
     import subprocess as sp
